@@ -1,0 +1,2 @@
+- `cargo clippy --fix --allow-dirty`
+  - clippy推奨の書き方に自動で書き換えするコマンド

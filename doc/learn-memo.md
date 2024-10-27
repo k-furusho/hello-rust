@@ -2,3 +2,5 @@
   - clippy推奨の書き方に自動で書き換えするコマンド
 - data-types#integer-overflow
   - https://doc.rust-lang.org/book/ch03-02-data-types.html#integer-overflow
+- 演算子と記号
+  - https://doc.rust-jp.rs/book-ja/appendix-02-operators.html

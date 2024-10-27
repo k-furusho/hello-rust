@@ -35,12 +35,20 @@ where
     println!("?? の値を入力してください:");
     let mut ans_input = String::new();
     io::stdin().read_line(&mut ans_input).unwrap();
-    let ans_input = ans_input.trim().parse::<i32>().unwrap();
-    if dbg!(ans_input == operation(op1, op2)) {
-        println!("正解！");
-        true
-    } else {
-        println!("不正解！");
-        false
+    let ans_input = ans_input.trim().parse::<i32>().ok();
+    match ans_input {
+        Some(ans_input) => {
+            if dbg!(ans_input == operation(op1, op2)) {
+                println!("正解！");
+                true
+            } else {
+                println!("不正解！");
+                false
+            }
+        }
+        None => {
+            println!("入力をi32に変換することができませんでした。");
+            false
+        }
     }
 }

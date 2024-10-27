@@ -81,3 +81,61 @@
     // 所有権が必要な場合
     fn take_items(items: Vec<i32>) { ... }
     ```
+
+- ジェネリクスとトレイト
+  - ジェネリクス：型パラメータを使用して汎用的なコードを書く機能
+    - 型パラメータは通常`T`、`U`、`V`などの大文字で表される
+    - 複数の型で動作する関数やデータ構造を定義できる
+    ```rust
+    // ジェネリック関数の例
+    fn first<T>(list: &[T]) -> Option<&T> {
+        list.get(0)
+    }
+
+    // ジェネリック構造体の例
+    struct Point<T> {
+        x: T,
+        y: T,
+    }
+    ```
+
+  - トレイト：共通の振る舞いを定義するインターフェース
+    - 型が実装すべきメソッドを定義する
+    - `impl Trait for Type`構文で実装
+    - トレイト境界を使用して型パラメータの制約を指定できる
+    ```rust
+    // トレイトの定義
+    trait Summary {
+        fn summarize(&self) -> String;
+    }
+
+    // トレイトの実装
+    impl Summary for NewsArticle {
+        fn summarize(&self) -> String {
+            format!("{}, by {}", self.headline, self.author)
+        }
+    }
+
+    // トレイト境界の例
+    fn notify<T: Summary>(item: &T) {
+        println!("Breaking news! {}", item.summarize());
+    }
+
+    // 複数のトレイト境界（where句を使用）
+    fn some_function<T, U>(t: &T, u: &U) -> i32
+    where
+        T: Display + Clone,
+        U: Clone + Debug,
+    {
+        // 実装
+    }
+    ```
+
+  - よく使用される標準トレイト
+    - `Clone`: 値の明示的なコピーを可能にする
+    - `Copy`: 値の暗黙的なコピーを可能にする
+    - `Debug`: `{:?}`フォーマットでのデバッグ出力を可能にする
+    - `Display`: `{}`フォーマットでの表示を可能にする
+    - `Default`: デフォルト値の生成を可能にする
+    - `PartialEq`/`Eq`: 等値比較を可能にする
+    - `PartialOrd`/`Ord`: 順序比較を可能にする

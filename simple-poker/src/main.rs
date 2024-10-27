@@ -30,5 +30,19 @@ fn main() {
     // Deckをシャッフル
     let mut rng = rand::thread_rng();
     deck.shuffle(&mut rng);
-    println!("{:?}", deck);
+    // println!("{:?}", deck);
+
+    // 手札用のVecの用意
+    let mut hand: Vec<Card> = Vec::new();
+    // 5枚のカードを引く
+    for _ in 0..5 {
+        hand.push(deck.pop().unwrap());
+    }
+    // 手札をソート
+    hand.sort_by(|a, b| a.rank.cmp(&b.rank));
+    //手札を表示
+    println!("--Hand--");
+    for (i, card) in hand.iter().enumerate() {
+        println!("{:}: {:?} {:}", i + 1, card.suit, card.rank);
+    }
 }

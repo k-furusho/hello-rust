@@ -30,7 +30,6 @@ fn main() {
     // Deckをシャッフル
     let mut rng = rand::thread_rng();
     deck.shuffle(&mut rng);
-    // println!("{:?}", deck);
 
     // 手札用のVecの用意
     let mut hand: Vec<Card> = Vec::new();
@@ -45,4 +44,10 @@ fn main() {
     for (i, card) in hand.iter().enumerate() {
         println!("{:}: {:?} {:}", i + 1, card.suit, card.rank);
     }
+
+    println!("入れ替えたいカードの番号を入力してください(例:1 2 3)");
+    // ユーザーからの入力を入れるための変数
+    let mut input = String::new();
+    // ユーザーからの入力を変数に書き込む
+    std::io::stdin().read_line(&mut input).unwrap();
 }

@@ -2,23 +2,25 @@ use rand::Rng;
 use std::io;
 
 fn main() {
-    let mut num_of_correct = 0;
+    let mut num_of_correct = 0; // 正解数を数える変数
     while num_of_correct < 3 {
         let quiz_mode = rand::thread_rng().gen_range(1..=2); // 1か2をランダムに選択
-        match quiz_mode {
-            1 => {
-                // quiz_modeが1のときは加算クイズ
-                if ask_question("+", |a, b| a + b) {
-                    num_of_correct += 1;
+        loop {
+            match quiz_mode {
+                1 => {
+                    if ask_question("+", |a, b| a + b) {
+                        num_of_correct += 1;
+                        break; // 正解したらループを抜ける
+                    }
                 }
-            }
-            2 => {
-                // quiz_modeが2のときは減算クイズ
-                if ask_question("-", |a, b| a - b) {
-                    num_of_correct += 1;
+                2 => {
+                    if ask_question("-", |a, b| a - b) {
+                        num_of_correct += 1;
+                        break; // 正解したらループを抜ける
+                    }
                 }
+                _ => unreachable!(),
             }
-            _ => unreachable!(),
         }
     }
 }

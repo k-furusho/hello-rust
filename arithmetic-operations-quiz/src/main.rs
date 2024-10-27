@@ -1,40 +1,46 @@
 use rand::Rng;
+use std::io;
 
 fn main() {
+    let mut num_of_correct = 0; // 正解数を数える変数
+    while num_of_correct < 3 {
+        let quiz_mode = rand::thread_rng().gen_range(1..=2); // 1か2をランダムに選択
+        loop {
+            match quiz_mode {
+                1 => {
+                    if ask_question("+", |a, b| a + b) {
+                        num_of_correct += 1;
+                        break; // 正解したらループを抜ける
+                    }
+                }
+                2 => {
+                    if ask_question("-", |a, b| a - b) {
+                        num_of_correct += 1;
+                        break; // 正解したらループを抜ける
+                    }
+                }
+                _ => unreachable!(),
+            }
+        }
+    }
+}
+
+fn ask_question<F>(operator: &str, operation: F) -> bool
+where
+    F: Fn(i32, i32) -> i32,
+{
     let op1 = rand::thread_rng().gen_range(0..100);
     let op2 = rand::thread_rng().gen_range(0..100);
-    println!("{} + {} = ??", op1, op2);
-
+    println!("{} {} {} = ??", op1, operator, op2);
     println!("?? の値を入力してください:");
-    // ユーザーからの回答を保持する変数
     let mut ans_input = String::new();
-
-    // 標準入力から1行取得し、ans_input に代入する
-    std::io::stdin().read_line(&mut ans_input).unwrap();
-
-    // ans_inputから trim()で改行を取り除き parse()で整数(i32)型に変換する
+    io::stdin().read_line(&mut ans_input).unwrap();
     let ans_input = ans_input.trim().parse::<i32>().unwrap();
-    dbg!(ans_input); // => cargo runした後にキーボードで入力した値が確認できる
-    if dbg!(ans_input == op1 + op2) {
+    if dbg!(ans_input == operation(op1, op2)) {
         println!("正解！");
+        true
     } else {
-        println!("不正解！")
+        println!("不正解！");
+        false
     }
-
-    let op1 = rand::thread_rng().gen_range(0..100);
-    let op2 = rand::thread_rng().gen_range(0..100);
-    println!("{} - {} = ??", op1, op2);
-    println!("?? の値を入力してください:");
-
-    let mut ans_input = String::new(); // ユーザーからの回答を保持する変数
-    std::io::stdin().read_line(&mut ans_input).unwrap();
-    let ans_input = ans_input.trim().parse::<i32>().unwrap();
-    dbg!(ans_input);
-    if dbg!(ans_input == op1 - op2) {
-        println!("正解！");
-    } else {
-        println!("不正解！")
-    }
-    // println!("i32 が扱えるデータ範囲: {} ~ {}", i32::MIN, i32::MAX);
-    // println!("u32 が扱えるデータ範囲: {} ~ {}", u32::MIN, u32::MAX);
 }

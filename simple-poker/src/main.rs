@@ -1,4 +1,5 @@
 use rand::seq::SliceRandom;
+use std::collections::HashMap;
 use std::io::{self};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -64,12 +65,19 @@ fn display_hand(hand: &[Card]) {
 }
 
 fn get_user_input() -> Vec<usize> {
-    let mut input = String::new();
-    io::stdin().read_line(&mut input).expect("入力エラー");
-    input
-        .split_whitespace()
-        .filter_map(|x| x.parse().ok())
-        .collect()
+    loop {
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).expect("入力エラー");
+        let numbers: Vec<usize> = input
+            .split_whitespace()
+            .filter_map(|x| x.parse().ok())
+            .collect();
+
+        if numbers.iter().all(|&n| n >= 1 && n <= HAND_SIZE) {
+            return numbers;
+        }
+        println!("1から{}までの数字を入力してください", HAND_SIZE);
+    }
 }
 
 fn replace_cards(hand: &mut Vec<Card>, deck: &mut Vec<Card>, numbers: &[usize]) {
@@ -101,8 +109,28 @@ fn evaluate_hand(hand: &[Card]) {
         }
     }
 
-    if flash {
+    let mut ranks: Vec<i32> = hand.iter().map(|c| c.rank).collect();
+    ranks.sort();
+    let straight = ranks.windows(2).all(|w| w[1] == w[0] + 1);
+    let royal = ranks == [1, 10, 11, 12, 13];
+    let mut rank_counts = HashMap::new();
+
+    for card in hand {
+        *rank_counts.entry(card.rank).or_insert(0) += 1;
+    }
+
+    let max_count = rank_counts.values().max().unwrap();
+
+    if flash && royal {
+        println!("ロイヤルストレートフラッシュ！");
+    } else if flash && straight {
+        println!("ストレートフラッシュ！");
+    } else if *max_count == 4 {
+        println!("フォーカード！");
+    } else if flash {
         println!("フラッシュ！");
+    } else if straight {
+        println!("ストレート！");
     } else if count >= 3 {
         println!("スリーカード！");
     } else if count == 2 {

@@ -1,1 +1,0 @@
-/Users/furushokazuya/bbtech/furusho/hello-rust/arithmetic-operations-quiz/target/debug/arithmetic-operations-quiz: /Users/furushokazuya/bbtech/furusho/hello-rust/arithmetic-operations-quiz/src/main.rs

@@ -24,17 +24,8 @@ fn main() {
         }
 
         // 式の計算
-        let left = if tokens[0] == "mem" {
-            memory
-        } else {
-            tokens[0].parse().unwrap()
-        };
-        let right = if tokens[2] == "mem" {
-            memory
-        } else {
-            tokens[2].parse().unwrap()
-        };
-
+        let left = eval_token(tokens[0], memory);
+        let right = eval_token(tokens[2], memory);
         let result = calculate(left, right, tokens[1]);
         // 結果の表示
         print_value(result);
@@ -45,6 +36,14 @@ fn main() {
 
 fn print_value(value: f64) {
     println!("=> {}", value)
+}
+
+fn eval_token(token: &str, memory: f64) -> f64 {
+    if token == "mem" {
+        memory
+    } else {
+        token.parse().unwrap()
+    }
 }
 
 fn calculate(left: f64, right: f64, operator: &str) -> f64 {

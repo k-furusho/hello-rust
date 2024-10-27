@@ -12,10 +12,12 @@
   - ロイヤルストレートフラッシュ
   - ストレートフラッシュ
   - フォーカード
+  - フルハウス
   - フラッシュ
+  - ストレート
   - スリーカード
-  - 2ペア
-  - 1ペア
+  - ツーペア
+  - ワンペア
 
 ## 使用方法
 
@@ -24,16 +26,18 @@
 3. 無効な入力（範囲外の数字など）の場合は、再入力を求められます。
 4. 入力後、新しい手札が表示され、役が判定されます。
 
-## 役の判定
+## 役の判定（強い順）
 
-- **ロイヤルストレートフラッシュ**: 同じスートの10, J, Q, K, A
-- **ストレートフラッシュ**: 同じスートの連続した5枚のカード
-- **フォーカード**: 同じランクのカードが4枚
-- **フラッシュ**: 全てのカードが同じスート
-- **スリーカード**: 同じランクのカードが3枚
-- **2ペア**: 2つのペア
-- **1ペア**: 1つのペア
-- **役なし**: 上記の役がない場合
+1. **ロイヤルストレートフラッシュ**: 同じスートの10, J, Q, K, A
+2. **ストレートフラッシュ**: 同じスートの連続した5枚のカード
+3. **フォーカード**: 同じランクのカードが4枚
+4. **フルハウス**: 3枚組1つと2枚組1つの組み合わせ
+5. **フラッシュ**: 全てのカードが同じスート
+6. **ストレート**: 連続した5枚のカード（A-5の最低ストレートを含む）
+7. **スリーカード**: 同じランクのカードが3枚
+8. **ツーペア**: 2つのペア
+9. **ワンペア**: 1つのペア
+10. **ハイカード**: 上記の役が一つもない場合（最も高いカードで判定）
 
 ## エラーハンドリング
 
@@ -54,3 +58,23 @@ cargo run
 ```
 
 このプログラムは、Rustの基本的な構文と標準ライブラリの使用方法を学ぶのに役立ちます。また、エラーハンドリングやコレクションの使用方法についても良い例となっています。楽しんでください！
+
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant InputHandler
+    participant GameLogic
+    participant HandEvaluator
+
+    User->>InputHandler: Enter input
+    InputHandler->>InputHandler: Validate input
+    alt Valid input
+        InputHandler->>GameLogic: Pass input
+        GameLogic->>HandEvaluator: Evaluate hand
+        HandEvaluator-->>GameLogic: Return evaluation result
+        GameLogic-->>User: Display result
+    else Invalid input
+        InputHandler-->>User: Prompt re-entry
+    end
+```

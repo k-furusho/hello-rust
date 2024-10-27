@@ -49,19 +49,30 @@ fn main() {
     // ユーザーからの入力を入れるための変数
     let mut input = String::new();
     // ユーザーからの入力を変数に書き込む
-    std::io::stdin().read_line(&mut input).unwrap();
+    std::io::stdin().read_line(&mut input).expect("入力エラー");
 
     // 扱いやすいようにVecに変換する
     let numbers: Vec<usize> = input
-        .split_whitespace() // 文字列を空白区切りで分割する
-        // 　(例:"1 2 3" -> ["1","2","3"]) }
-        .map(|x| x.parse().unwrap()) // 文字列を数値に変換する
-        // 　(例:["1","2","3"] -> [1,2,3]) }
-        .collect::<Vec<usize>>(); // Vecに変換する
+        .split_whitespace()
+        .filter_map(|x| x.parse().ok()) // 変換に失敗した場合は無視
+        .collect();
+
+    // 入力の検証
+    for &number in &numbers {
+        if number < 1 || number > hand.len() {
+            println!("無効な番号: {}", number);
+            return;
+        }
+    }
 
     // 与えられた数字の箇所をデッキから取り出したカードに置き換える
     for number in numbers {
-        hand[number - 1] = deck.pop().unwrap();
+        if let Some(card) = deck.pop() {
+            hand[number - 1] = card;
+        } else {
+            println!("デッキにカードが足りません");
+            return;
+        }
     }
 
     // 手札をソート
@@ -70,5 +81,31 @@ fn main() {
     println!("--Hand--");
     for (i, card) in hand.iter().enumerate() {
         println!("{:}: {:?} {:}", i + 1, card.suit, card.rank);
+    }
+
+    // フラッシュのチェック
+    let suit = hand.first().unwrap().suit;
+    let flash = hand.iter().all(|c| c.suit == suit);
+
+    // ペア数のチェック
+    let mut count = 0;
+    for i in 0..hand.len() - 1 {
+        for j in i + 1..hand.len() {
+            if hand[i].rank == hand[j].rank {
+                count += 1;
+            }
+        }
+    }
+
+    if flash {
+        println!("フラッシュ！");
+    } else if count >= 3 {
+        println!("スリーカード！");
+    } else if count == 2 {
+        println!("2ペア!!");
+    } else if count == 1 {
+        println!("1ペア!!");
+    } else {
+        println!("約なし...")
     }
 }

@@ -1,2 +1,4 @@
 - `cargo clippy --fix --allow-dirty`
   - clippy推奨の書き方に自動で書き換えするコマンド
+- data-types#integer-overflow
+  - https://doc.rust-lang.org/book/ch03-02-data-types.html#integer-overflow

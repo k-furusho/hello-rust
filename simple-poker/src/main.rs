@@ -50,4 +50,25 @@ fn main() {
     let mut input = String::new();
     // ユーザーからの入力を変数に書き込む
     std::io::stdin().read_line(&mut input).unwrap();
+
+    // 扱いやすいようにVecに変換する
+    let numbers: Vec<usize> = input
+        .split_whitespace() // 文字列を空白区切りで分割する
+        // 　(例:"1 2 3" -> ["1","2","3"]) }
+        .map(|x| x.parse().unwrap()) // 文字列を数値に変換する
+        // 　(例:["1","2","3"] -> [1,2,3]) }
+        .collect::<Vec<usize>>(); // Vecに変換する
+
+    // 与えられた数字の箇所をデッキから取り出したカードに置き換える
+    for number in numbers {
+        hand[number - 1] = deck.pop().unwrap();
+    }
+
+    // 手札をソート
+    hand.sort_by(|a, b| a.rank.cmp(&b.rank));
+    //手札を表示
+    println!("--Hand--");
+    for (i, card) in hand.iter().enumerate() {
+        println!("{:}: {:?} {:}", i + 1, card.suit, card.rank);
+    }
 }

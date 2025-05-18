@@ -2,6 +2,11 @@ use rand::seq::SliceRandom;
 use std::collections::HashMap;
 use std::fmt;
 use std::io::{self};
+use simple_poker::domain::repository::game_repository::GameRepository;
+use simple_poker::domain::repository::player_repository::PlayerRepository;
+use simple_poker::infrastructure::repository::inmemory::game_repository_inmemory::InMemoryGameRepository;
+use simple_poker::infrastructure::repository::inmemory::player_repository_inmemory::InMemoryPlayerRepository;
+use simple_poker::presentation::cli::menu::MenuController;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Suit {
@@ -75,25 +80,13 @@ const RANKS: std::ops::RangeInclusive<i32> = MIN_RANK..=MAX_RANK;
 const ROYAL_STRAIGHT: [i32; 5] = [1, 10, 11, 12, 13];
 
 fn main() {
-    let mut deck = create_deck();
-    deck.shuffle(&mut rand::thread_rng());
-
-    let mut hand = draw_hand(&mut deck);
-    display_hand(&hand);
-
-    println!("入れ替えたいカードの番号を入力してください(例:1 2 3)");
-    let numbers = match get_user_input() {
-        Ok(nums) => nums,
-        Err(e) => {
-            println!("エラー: {}", e);
-            return;
-        }
-    };
-
-    replace_cards(&mut hand, &mut deck, &numbers);
-    display_hand(&hand);
-
-    evaluate_hand(&hand);
+    // リポジトリの初期化
+    let game_repository = InMemoryGameRepository::new();
+    let player_repository = InMemoryPlayerRepository::new();
+    
+    // メニューコントローラの作成と実行
+    let mut menu = MenuController::new(game_repository, player_repository);
+    menu.run();
 }
 
 fn create_deck() -> Vec<Card> {

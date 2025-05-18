@@ -54,6 +54,10 @@ impl Hand {
     pub fn sort_by_rank(&mut self) {
         self.cards.sort_by_key(|card| card.rank());
     }
+    
+    pub fn is_empty(&self) -> bool {
+        self.cards.is_empty()
+    }
 }
 
 impl fmt::Display for Hand {

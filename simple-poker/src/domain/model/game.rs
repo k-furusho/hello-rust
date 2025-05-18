@@ -111,6 +111,11 @@ pub struct Game {
 
 impl Game {
     pub fn new(variant: GameVariant, small_blind: u32, big_blind: u32) -> Result<Self, &'static str> {
+        // スモールブラインドがビッグブラインドより大きいとエラー
+        if small_blind > big_blind {
+            return Err("スモールブラインドはビッグブラインド以下である必要があります");
+        }
+        
         Ok(Self {
             id: GameId::new(),
             variant,

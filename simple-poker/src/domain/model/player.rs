@@ -3,6 +3,7 @@ use uuid::Uuid;
 
 use super::bet::Chips;
 use super::hand::Hand;
+use super::card::Card;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlayerId(String);
@@ -51,6 +52,34 @@ impl Player {
             is_all_in: false,
             is_dealer: false,
         }
+    }
+    
+    // デシリアライズ用のファクトリメソッド
+    pub fn from_serialized(
+        id: PlayerId,
+        name: String,
+        chips_amount: u32,
+        cards: Vec<Card>,
+        current_bet: u32,
+        is_folded: bool,
+        is_all_in: bool,
+        is_dealer: bool,
+    ) -> Result<Self, &'static str> {
+        let mut hand = Hand::new(5);
+        for card in cards {
+            hand.add_card(card)?;
+        }
+        
+        Ok(Self {
+            id,
+            name,
+            hand,
+            chips: Chips::new(chips_amount),
+            current_bet,
+            is_folded,
+            is_all_in,
+            is_dealer,
+        })
     }
     
     pub fn id(&self) -> &PlayerId {

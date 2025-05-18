@@ -57,6 +57,7 @@ impl TryFrom<SerializableGameHistoryEntry> for GameHistoryEntry {
     }
 }
 
+#[derive(Clone)]
 pub struct FileGameHistoryRepository {
     directory: PathBuf,
     entries: HashMap<String, GameHistoryEntry>,

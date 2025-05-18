@@ -83,6 +83,10 @@ impl GameId {
         Self(Uuid::new_v4().to_string())
     }
     
+    pub fn from_string(id: String) -> Self {
+        Self(id)
+    }
+    
     pub fn value(&self) -> &str {
         &self.0
     }
@@ -436,5 +440,52 @@ impl Game {
         self.current_player_index = 0;
         
         Ok(())
+    }
+    
+    // デシリアライズのためのファクトリメソッド
+    pub fn from_serialized(
+        id: GameId,
+        variant: GameVariant,
+        players: Vec<Player>,
+        community_cards: Vec<Card>,
+        pot_total: u32,
+        current_phase: GamePhase,
+        current_round: Option<BettingRound>,
+        current_player_index: usize,
+        dealer_index: usize,
+        small_blind: u32,
+        big_blind: u32,
+        current_bet: u32,
+    ) -> Result<Self, &'static str> {
+        let mut game = Self::new(variant, small_blind, big_blind)?;
+        
+        // IDの設定
+        game.id = id;
+        
+        // プレイヤーの追加
+        game.players = players;
+        
+        // コミュニティカードのセット
+        game.community_cards = community_cards;
+        
+        // ポットの設定
+        game.pot = Pot::new();
+        game.pot_mut().add(pot_total);
+        
+        // 各種ステータスの設定
+        game.current_phase = current_phase;
+        game.current_round = current_round;
+        game.current_player_index = current_player_index;
+        game.dealer_index = dealer_index;
+        game.current_bet = current_bet;
+        
+        // ディーラーフラグを設定
+        if game.players.len() > dealer_index {
+            for (i, player) in game.players.iter_mut().enumerate() {
+                player.set_dealer(i == dealer_index);
+            }
+        }
+        
+        Ok(game)
     }
 } 

@@ -1,5 +1,5 @@
 use crate::domain::model::bet::BetAction;
-use crate::domain::model::game::GameId;
+use crate::domain::model::game::{GameId, GameSerializedData};
 use crate::domain::model::player::PlayerId;
 use crate::domain::repository::game_repository::GameRepository;
 use crate::domain::service::game_rule::GameRuleService;
@@ -144,18 +144,20 @@ mod tests {
         
         // ベッティングフェーズに設定
         game = Game::from_serialized(
-            game.id().clone(),
-            game.variant(),
-            game.players().to_vec(),
-            game.community_cards().to_vec(),
-            0, // ポット額を0に初期化
-            GamePhase::Betting,
-            game.current_round(),
-            0, // カレントプレイヤーを0に設定
-            game.dealer_index(),
-            game.small_blind(),
-            game.big_blind(),
-            10 // 現在のベット額を10に設定
+            GameSerializedData {
+                id: game.id().clone(),
+                variant: game.variant(),
+                players: game.players().to_vec(),
+                community_cards: game.community_cards().to_vec(),
+                pot_total: 0, // ポット額を0に初期化
+                current_phase: GamePhase::Betting,
+                current_round: game.current_round(),
+                current_player_index: 0, // カレントプレイヤーを0に設定
+                dealer_index: game.dealer_index(),
+                small_blind: game.small_blind(),
+                big_blind: game.big_blind(),
+                current_bet: 10 // 現在のベット額を10に設定
+            }
         ).unwrap();
         
         // ゲームをリポジトリに保存

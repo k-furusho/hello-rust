@@ -1,4 +1,4 @@
-use crate::domain::model::game::GameId;
+use crate::domain::model::game::{GameId, GameSerializedData};
 use crate::domain::model::player::PlayerId;
 use crate::domain::repository::game_repository::GameRepository;
 
@@ -72,18 +72,20 @@ mod tests {
         // ドローフェーズに設定
         // 便宜上、privateフィールドに直接アクセスできない代わりに状態を再現する
         game = Game::from_serialized(
-            game.id().clone(),
-            game.variant(),
-            game.players().to_vec(),
-            game.community_cards().to_vec(),
-            game.pot().total(),
-            GamePhase::Drawing,
-            game.current_round(),
-            game.current_player_index(),
-            game.dealer_index(),
-            game.small_blind(),
-            game.big_blind(),
-            game.current_bet()
+            GameSerializedData {
+                id: game.id().clone(),
+                variant: game.variant(),
+                players: game.players().to_vec(),
+                community_cards: game.community_cards().to_vec(),
+                pot_total: game.pot().total(),
+                current_phase: GamePhase::Drawing,
+                current_round: game.current_round(),
+                current_player_index: game.current_player_index(),
+                dealer_index: game.dealer_index(),
+                small_blind: game.small_blind(),
+                big_blind: game.big_blind(),
+                current_bet: game.current_bet()
+            }
         ).unwrap();
         
         // 手札の最初のカードを記録
@@ -159,18 +161,20 @@ mod tests {
         
         // ドローフェーズに設定
         game = Game::from_serialized(
-            game.id().clone(),
-            game.variant(),
-            game.players().to_vec(),
-            game.community_cards().to_vec(),
-            game.pot().total(),
-            GamePhase::Drawing,
-            game.current_round(),
-            game.current_player_index(),
-            game.dealer_index(),
-            game.small_blind(),
-            game.big_blind(),
-            game.current_bet()
+            GameSerializedData {
+                id: game.id().clone(),
+                variant: game.variant(),
+                players: game.players().to_vec(),
+                community_cards: game.community_cards().to_vec(),
+                pot_total: game.pot().total(),
+                current_phase: GamePhase::Drawing,
+                current_round: game.current_round(),
+                current_player_index: game.current_player_index(),
+                dealer_index: game.dealer_index(),
+                small_blind: game.small_blind(),
+                big_blind: game.big_blind(),
+                current_bet: game.current_bet()
+            }
         ).unwrap();
         
         // ゲームをリポジトリに保存

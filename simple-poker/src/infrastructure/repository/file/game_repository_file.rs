@@ -2,8 +2,8 @@ use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
-use crate::domain::model::game::{Game, GameId, GameVariant, GamePhase, BettingRound};
-use crate::domain::model::player::{Player, PlayerId};
+use crate::domain::model::game::{Game, GameId, GameVariant, GamePhase, BettingRound, GameSerializedData};
+use crate::domain::model::player::{Player, PlayerId, PlayerSerializedData};
 use crate::domain::model::card::{Card, Suit};
 use crate::domain::model::error::DomainError;
 use crate::domain::repository::game_repository::GameRepository;
@@ -163,18 +163,20 @@ impl GameSerializer {
         
         // ゲームを復元（デシリアライズのファクトリメソッドを使用）
         Game::from_serialized(
-            id,
-            variant,
-            players,
-            community_cards,
-            serializable.pot,
-            phase,
-            round,
-            serializable.current_player_index,
-            serializable.dealer_index,
-            serializable.small_blind,
-            serializable.big_blind,
-            serializable.current_bet,
+            GameSerializedData {
+                id,
+                variant,
+                players,
+                community_cards,
+                pot_total: serializable.pot,
+                current_phase: phase,
+                current_round: round,
+                current_player_index: serializable.current_player_index,
+                dealer_index: serializable.dealer_index,
+                small_blind: serializable.small_blind,
+                big_blind: serializable.big_blind,
+                current_bet: serializable.current_bet,
+            }
         ).map_err(|e| DomainError::InvalidGameOperation(format!("ゲームの復元に失敗しました: {}", e)))
     }
     
@@ -190,14 +192,16 @@ impl GameSerializer {
         
         // プレイヤーを復元（デシリアライズのファクトリメソッドを使用）
         Player::from_serialized(
-            player_id,
-            serializable.name,
-            serializable.chips,
-            cards,
-            serializable.current_bet,
-            serializable.is_folded,
-            serializable.is_all_in,
-            serializable.is_dealer,
+            PlayerSerializedData {
+                id: player_id,
+                name: serializable.name,
+                chips_amount: serializable.chips,
+                cards,
+                current_bet: serializable.current_bet,
+                is_folded: serializable.is_folded,
+                is_all_in: serializable.is_all_in,
+                is_dealer: serializable.is_dealer,
+            }
         ).map_err(|e| DomainError::InvalidPlayerOperation(format!("プレイヤーの復元に失敗しました: {}", e)))
     }
     

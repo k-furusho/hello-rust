@@ -2,9 +2,13 @@ use std::sync::{Arc, Mutex};
 use crate::domain::model::event::{GameEvent, EventPublisher, EventSubscriber};
 use crate::domain::model::error::DomainError;
 
+// 型エイリアスを導入して複雑な型を単純化
+type EventCallback = Box<dyn Fn(&GameEvent) + Send + 'static>;
+type Subscribers = Arc<Mutex<Vec<EventCallback>>>;
+
 #[derive(Clone)]
 pub struct InMemoryEventPublisher {
-    subscribers: Arc<Mutex<Vec<Box<dyn Fn(&GameEvent) + Send + 'static>>>>,
+    subscribers: Subscribers,
 }
 
 impl InMemoryEventPublisher {
@@ -37,7 +41,7 @@ impl EventPublisher for InMemoryEventPublisher {
 }
 
 impl EventSubscriber for InMemoryEventPublisher {
-    fn subscribe(&mut self, callback: Box<dyn Fn(&GameEvent) + Send + 'static>) {
+    fn subscribe(&mut self, callback: EventCallback) {
         if let Ok(mut subscribers) = self.subscribers.lock() {
             subscribers.push(callback);
         }

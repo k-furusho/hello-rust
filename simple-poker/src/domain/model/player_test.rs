@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::domain::model::player::{Player, PlayerId};
+    use crate::domain::model::player::{Player, PlayerId, PlayerSerializedData};
     use crate::domain::model::card::{Card, Suit};
 
     #[test]
@@ -116,16 +116,20 @@ mod tests {
         let is_folded = false;
         let is_all_in = false;
         let is_dealer = true;
+        
         let result = Player::from_serialized(
-            player_id.clone(),
-            name.clone(),
-            chips,
-            cards.clone(),
-            current_bet,
-            is_folded,
-            is_all_in,
-            is_dealer
+            PlayerSerializedData {
+                id: player_id.clone(),
+                name: name.clone(),
+                chips_amount: chips,
+                cards: cards.clone(),
+                current_bet,
+                is_folded,
+                is_all_in,
+                is_dealer
+            }
         );
+        
         assert!(result.is_ok(), "シリアライズからの復元に失敗しました");
         let player = result.unwrap();
         assert_eq!(player.id().value(), player_id.value(), "IDが一致しません");

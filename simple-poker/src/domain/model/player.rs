@@ -42,6 +42,18 @@ pub struct Player {
     is_dealer: bool,
 }
 
+
+pub struct PlayerSerializedData {
+    pub id: PlayerId,
+    pub name: String,
+    pub chips_amount: u32,
+    pub cards: Vec<Card>,
+    pub current_bet: u32,
+    pub is_folded: bool,
+    pub is_all_in: bool,
+    pub is_dealer: bool,
+}
+
 impl Player {
     pub fn new(name: String, initial_chips: u32) -> Self {
         Self {
@@ -57,30 +69,21 @@ impl Player {
     }
     
     // デシリアライズ用のファクトリメソッド
-    pub fn from_serialized(
-        id: PlayerId,
-        name: String,
-        chips_amount: u32,
-        cards: Vec<Card>,
-        current_bet: u32,
-        is_folded: bool,
-        is_all_in: bool,
-        is_dealer: bool,
-    ) -> Result<Self, &'static str> {
+    pub fn from_serialized(data: PlayerSerializedData) -> Result<Self, &'static str> {
         let mut hand = Hand::new(5);
-        for card in cards {
+        for card in data.cards {
             hand.add_card(card)?;
         }
         
         Ok(Self {
-            id,
-            name,
+            id: data.id,
+            name: data.name,
             hand,
-            chips: Chips::new(chips_amount),
-            current_bet,
-            is_folded,
-            is_all_in,
-            is_dealer,
+            chips: Chips::new(data.chips_amount),
+            current_bet: data.current_bet,
+            is_folded: data.is_folded,
+            is_all_in: data.is_all_in,
+            is_dealer: data.is_dealer,
         })
     }
     

@@ -111,6 +111,22 @@ pub struct Game {
     current_bet: u32,  // 現在のラウンドでの最大ベット額
 }
 
+// デシリアライズのためのデータ構造体
+pub struct GameSerializedData {
+    pub id: GameId,
+    pub variant: GameVariant,
+    pub players: Vec<Player>,
+    pub community_cards: Vec<Card>,
+    pub pot_total: u32,
+    pub current_phase: GamePhase,
+    pub current_round: Option<BettingRound>,
+    pub current_player_index: usize,
+    pub dealer_index: usize,
+    pub small_blind: u32,
+    pub big_blind: u32,
+    pub current_bet: u32,
+}
+
 impl Game {
     pub fn new(variant: GameVariant, small_blind: u32, big_blind: u32) -> Result<Self, DomainError> {
         // スモールブラインドがビッグブラインドより大きいとエラー
@@ -452,46 +468,33 @@ impl Game {
     }
     
     // デシリアライズのためのファクトリメソッド
-    pub fn from_serialized(
-        id: GameId,
-        variant: GameVariant,
-        players: Vec<Player>,
-        community_cards: Vec<Card>,
-        pot_total: u32,
-        current_phase: GamePhase,
-        current_round: Option<BettingRound>,
-        current_player_index: usize,
-        dealer_index: usize,
-        small_blind: u32,
-        big_blind: u32,
-        current_bet: u32,
-    ) -> Result<Self, DomainError> {
-        let mut game = Self::new(variant, small_blind, big_blind)?;
+    pub fn from_serialized(data: GameSerializedData) -> Result<Self, DomainError> {
+        let mut game = Self::new(data.variant, data.small_blind, data.big_blind)?;
         
         // IDの設定
-        game.id = id;
+        game.id = data.id;
         
         // プレイヤーの追加
-        game.players = players;
+        game.players = data.players;
         
         // コミュニティカードのセット
-        game.community_cards = community_cards;
+        game.community_cards = data.community_cards;
         
         // ポットの設定
         game.pot = Pot::new();
-        game.pot_mut().add(pot_total);
+        game.pot_mut().add(data.pot_total);
         
         // 各種ステータスの設定
-        game.current_phase = current_phase;
-        game.current_round = current_round;
-        game.current_player_index = current_player_index;
-        game.dealer_index = dealer_index;
-        game.current_bet = current_bet;
+        game.current_phase = data.current_phase;
+        game.current_round = data.current_round;
+        game.current_player_index = data.current_player_index;
+        game.dealer_index = data.dealer_index;
+        game.current_bet = data.current_bet;
         
         // ディーラーフラグを設定
-        if game.players.len() > dealer_index {
+        if game.players.len() > data.dealer_index {
             for (i, player) in game.players.iter_mut().enumerate() {
-                player.set_dealer(i == dealer_index);
+                player.set_dealer(i == data.dealer_index);
             }
         }
         

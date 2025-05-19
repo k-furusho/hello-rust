@@ -1,8 +1,9 @@
 use std::fmt;
+use std::collections::HashMap;
+use simple_poker::presentation::cli::menu::MenuController;
 use simple_poker::infrastructure::repository::inmemory::game_repository_inmemory::InMemoryGameRepository;
 use simple_poker::infrastructure::repository::inmemory::player_repository_inmemory::InMemoryPlayerRepository;
-use simple_poker::presentation::cli::menu::MenuController;
-use std::collections::HashMap;
+use simple_poker::infrastructure::service::event::inmemory_event_publisher::InMemoryEventPublisher;
 
 const ROYAL_STRAIGHT: [i32; 5] = [1, 10, 11, 12, 13];
 
@@ -75,9 +76,10 @@ fn main() {
     // リポジトリの初期化
     let game_repository = InMemoryGameRepository::new();
     let player_repository = InMemoryPlayerRepository::new();
+    let event_publisher = InMemoryEventPublisher::new();
     
     // メニューコントローラの作成と実行
-    let mut menu = MenuController::new(game_repository, player_repository);
+    let mut menu = MenuController::new(game_repository, player_repository, event_publisher);
     menu.run();
 }
 

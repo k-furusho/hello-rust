@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use crate::domain::model::player::{Player, PlayerId};
+use crate::domain::model::error::DomainError;
 use crate::domain::repository::player_repository::PlayerRepository;
 
 #[derive(Clone)]
@@ -24,8 +25,8 @@ impl Default for InMemoryPlayerRepository {
 }
 
 impl PlayerRepository for InMemoryPlayerRepository {
-    fn save(&mut self, player: &Player) -> Result<(), String> {
-        let mut players = self.players.lock().map_err(|_| "ロックの取得に失敗しました".to_string())?;
+    fn save(&mut self, player: &Player) -> Result<(), DomainError> {
+        let mut players = self.players.lock().map_err(|_| DomainError::InvalidState("ロックの取得に失敗しました".into()))?;
         players.insert(player.id().value().to_string(), player.clone());
         Ok(())
     }
@@ -43,8 +44,8 @@ impl PlayerRepository for InMemoryPlayerRepository {
         players.values().cloned().collect()
     }
     
-    fn delete(&mut self, id: &PlayerId) -> Result<(), String> {
-        let mut players = self.players.lock().map_err(|_| "ロックの取得に失敗しました".to_string())?;
+    fn delete(&mut self, id: &PlayerId) -> Result<(), DomainError> {
+        let mut players = self.players.lock().map_err(|_| DomainError::InvalidState("ロックの取得に失敗しました".into()))?;
         players.remove(id.value());
         Ok(())
     }

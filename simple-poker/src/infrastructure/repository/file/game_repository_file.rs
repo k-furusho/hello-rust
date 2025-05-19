@@ -1,19 +1,18 @@
 use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
-
-use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 use crate::domain::model::game::{Game, GameId, GameVariant, GamePhase, BettingRound};
 use crate::domain::model::player::{Player, PlayerId};
 use crate::domain::model::card::{Card, Suit};
+use crate::domain::model::error::DomainError;
 use crate::domain::repository::game_repository::GameRepository;
 
-// シリアライズ用のモデルを別モジュールに分離
 mod serializable {
-    use serde::{Deserialize, Serialize};
+    use serde::{Serialize, Deserialize};
     
-    #[derive(Serialize, Deserialize, Debug, Clone)]
+    #[derive(Serialize, Deserialize)]
     pub struct SerializableGame {
         pub id: String,
         pub variant: String,
@@ -29,7 +28,7 @@ mod serializable {
         pub current_bet: u32,
     }
     
-    #[derive(Serialize, Deserialize, Debug, Clone)]
+    #[derive(Serialize, Deserialize)]
     pub struct SerializablePlayer {
         pub id: String,
         pub name: String,
@@ -41,14 +40,13 @@ mod serializable {
         pub is_dealer: bool,
     }
     
-    #[derive(Serialize, Deserialize, Debug, Clone)]
+    #[derive(Serialize, Deserialize)]
     pub struct SerializableCard {
         pub suit: String,
         pub rank: u8,
     }
 }
 
-// シリアライザークラス - ドメインモデルとシリアライズモデル間の変換を担当
 struct GameSerializer;
 
 impl GameSerializer {
@@ -72,7 +70,7 @@ impl GameSerializer {
                 GamePhase::Showdown => "Showdown".to_string(),
                 GamePhase::Complete => "Complete".to_string(),
             },
-            current_round: game.current_round().map(|r| match r {
+            current_round: game.current_round().map(|round| match round {
                 BettingRound::PreDraw => "PreDraw".to_string(),
                 BettingRound::PostDraw => "PostDraw".to_string(),
                 BettingRound::PreFlop => "PreFlop".to_string(),
@@ -116,16 +114,16 @@ impl GameSerializer {
     }
     
     // シリアライズ済みのゲームからゲームモデルに変換
-    fn from_serializable(serializable: serializable::SerializableGame) -> Result<Game, String> {
-        // バリアントの復元
+    fn from_serializable(serializable: serializable::SerializableGame) -> Result<Game, DomainError> {
+        // バリアントを復元
         let variant = match serializable.variant.as_str() {
             "FiveCardDraw" => GameVariant::FiveCardDraw,
             "TexasHoldem" => GameVariant::TexasHoldem,
             "Omaha" => GameVariant::Omaha,
-            _ => return Err(format!("不明なゲームバリアント: {}", serializable.variant)),
+            _ => return Err(DomainError::InvalidGameOperation(format!("不明なゲームバリアント: {}", serializable.variant))),
         };
         
-        // フェーズの復元
+        // フェーズを復元
         let phase = match serializable.current_phase.as_str() {
             "NotStarted" => GamePhase::NotStarted,
             "Dealing" => GamePhase::Dealing,
@@ -133,11 +131,11 @@ impl GameSerializer {
             "Drawing" => GamePhase::Drawing,
             "Showdown" => GamePhase::Showdown,
             "Complete" => GamePhase::Complete,
-            _ => return Err(format!("不明なゲームフェーズ: {}", serializable.current_phase)),
+            _ => return Err(DomainError::InvalidGameOperation(format!("不明なゲームフェーズ: {}", serializable.current_phase))),
         };
         
-        // ラウンドの復元
-        let round = if let Some(round_str) = serializable.current_round {
+        // ラウンドを復元
+        let round = if let Some(round_str) = serializable.current_round.as_ref() {
             match round_str.as_str() {
                 "PreDraw" => Some(BettingRound::PreDraw),
                 "PostDraw" => Some(BettingRound::PostDraw),
@@ -145,7 +143,7 @@ impl GameSerializer {
                 "Flop" => Some(BettingRound::Flop),
                 "Turn" => Some(BettingRound::Turn),
                 "River" => Some(BettingRound::River),
-                _ => return Err(format!("不明なベッティングラウンド: {}", round_str)),
+                _ => return Err(DomainError::InvalidGameOperation(format!("不明なベッティングラウンド: {}", round_str))),
             }
         } else {
             None
@@ -178,11 +176,11 @@ impl GameSerializer {
             serializable.small_blind,
             serializable.big_blind,
             serializable.current_bet,
-        ).map_err(|e| format!("ゲームの復元に失敗しました: {}", e))
+        ).map_err(|e| DomainError::InvalidGameOperation(format!("ゲームの復元に失敗しました: {}", e)))
     }
     
     // シリアライズ済みのプレイヤーからプレイヤーモデルに変換
-    fn player_from_serializable(serializable: serializable::SerializablePlayer) -> Result<Player, String> {
+    fn player_from_serializable(serializable: serializable::SerializablePlayer) -> Result<Player, DomainError> {
         // プレイヤーIDを復元
         let player_id = PlayerId::from_string(serializable.id);
         
@@ -201,21 +199,21 @@ impl GameSerializer {
             serializable.is_folded,
             serializable.is_all_in,
             serializable.is_dealer,
-        ).map_err(|e| format!("プレイヤーの復元に失敗しました: {}", e))
+        ).map_err(|e| DomainError::InvalidPlayerOperation(format!("プレイヤーの復元に失敗しました: {}", e)))
     }
     
     // シリアライズ済みのカードからカードモデルに変換
-    fn card_from_serializable(serializable: &serializable::SerializableCard) -> Result<Card, String> {
+    fn card_from_serializable(serializable: &serializable::SerializableCard) -> Result<Card, DomainError> {
         let suit = match serializable.suit.as_str() {
             "Club" => Suit::Club,
             "Diamond" => Suit::Diamond,
             "Heart" => Suit::Heart,
             "Spade" => Suit::Spade,
-            _ => return Err(format!("不明なスート: {}", serializable.suit)),
+            _ => return Err(DomainError::InvalidCard(format!("不明なスート: {}", serializable.suit))),
         };
         
         Card::new(suit, serializable.rank)
-            .map_err(|e| format!("カードの作成に失敗しました: {}", e))
+            .map_err(|e| DomainError::InvalidCard(format!("カードの作成に失敗しました: {}", e)))
     }
 }
 
@@ -225,13 +223,13 @@ pub struct FileGameRepository {
 }
 
 impl FileGameRepository {
-    pub fn new<P: AsRef<Path>>(directory: P) -> Result<Self, String> {
+    pub fn new<P: AsRef<Path>>(directory: P) -> Result<Self, DomainError> {
         let directory = directory.as_ref().to_path_buf();
         
         // ディレクトリが存在しない場合は作成
         if !directory.exists() {
             fs::create_dir_all(&directory)
-                .map_err(|e| format!("ディレクトリの作成に失敗しました: {}", e))?;
+                .map_err(|e| DomainError::InvalidState(format!("ディレクトリの作成に失敗しました: {}", e)))?;
         }
         
         let repo = Self {
@@ -245,43 +243,43 @@ impl FileGameRepository {
         self.directory.join(format!("game_{}.json", id.value()))
     }
     
-    fn save_game(&self, game: &Game) -> Result<(), String> {
+    fn save_game(&self, game: &Game) -> Result<(), DomainError> {
         // ゲームをシリアライズ可能な形式に変換
         let serializable = GameSerializer::to_serializable(game);
         
         // JSONに変換
         let json = serde_json::to_string_pretty(&serializable)
-            .map_err(|e| format!("JSONへの変換に失敗しました: {}", e))?;
+            .map_err(|e| DomainError::InvalidState(format!("JSONへの変換に失敗しました: {}", e)))?;
             
         // ファイルに保存
         let game_path = self.get_game_path(game.id());
         let mut file = File::create(&game_path)
-            .map_err(|e| format!("ファイルの作成に失敗しました: {}", e))?;
+            .map_err(|e| DomainError::InvalidState(format!("ファイルの作成に失敗しました: {}", e)))?;
             
         file.write_all(json.as_bytes())
-            .map_err(|e| format!("ファイルの書き込みに失敗しました: {}", e))?;
+            .map_err(|e| DomainError::InvalidState(format!("ファイルの書き込みに失敗しました: {}", e)))?;
             
         Ok(())
     }
     
-    fn load_game(&self, id: &GameId) -> Result<Game, String> {
+    fn load_game(&self, id: &GameId) -> Result<Game, DomainError> {
         let game_path = self.get_game_path(id);
         
         if !game_path.exists() {
-            return Err(format!("ゲーム {} が見つかりません", id.value()));
+            return Err(DomainError::ResourceNotFound(format!("ゲーム {} が見つかりません", id.value())));
         }
         
         // ファイルを読み込み
         let mut file = File::open(&game_path)
-            .map_err(|e| format!("ファイルを開けませんでした: {}", e))?;
+            .map_err(|e| DomainError::InvalidState(format!("ファイルを開けませんでした: {}", e)))?;
             
         let mut contents = String::new();
         file.read_to_string(&mut contents)
-            .map_err(|e| format!("ファイルの読み込みに失敗しました: {}", e))?;
+            .map_err(|e| DomainError::InvalidState(format!("ファイルの読み込みに失敗しました: {}", e)))?;
             
         // JSONをデシリアライズ
         let serializable: serializable::SerializableGame = serde_json::from_str(&contents)
-            .map_err(|e| format!("JSONのパースに失敗しました: {}", e))?;
+            .map_err(|e| DomainError::InvalidState(format!("JSONのパースに失敗しました: {}", e)))?;
             
         // ゲームオブジェクトに変換
         GameSerializer::from_serializable(serializable)
@@ -289,7 +287,7 @@ impl FileGameRepository {
 }
 
 impl GameRepository for FileGameRepository {
-    fn save(&mut self, game: &Game) -> Result<(), String> {
+    fn save(&mut self, game: &Game) -> Result<(), DomainError> {
         self.save_game(game)
     }
     
@@ -331,15 +329,15 @@ impl GameRepository for FileGameRepository {
         games
     }
     
-    fn delete(&mut self, id: &GameId) -> Result<(), String> {
+    fn delete(&mut self, id: &GameId) -> Result<(), DomainError> {
         let game_path = self.get_game_path(id);
         
         if !game_path.exists() {
-            return Err(format!("ゲーム {} が見つかりません", id.value()));
+            return Err(DomainError::ResourceNotFound(format!("ゲーム {} が見つかりません", id.value())));
         }
         
         fs::remove_file(&game_path)
-            .map_err(|e| format!("ファイルの削除に失敗しました: {}", e))?;
+            .map_err(|e| DomainError::InvalidState(format!("ファイルの削除に失敗しました: {}", e)))?;
             
         Ok(())
     }

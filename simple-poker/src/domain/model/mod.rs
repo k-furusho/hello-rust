@@ -4,6 +4,8 @@ pub mod hand;
 pub mod bet;
 pub mod player;
 pub mod game;
+pub mod error;
+pub mod event;
 
 #[cfg(test)]
 mod card_test;

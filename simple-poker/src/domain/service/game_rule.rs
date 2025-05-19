@@ -1,6 +1,7 @@
 use crate::domain::model::bet::BetAction;
 use crate::domain::model::game::{Game, GamePhase, GameVariant};
 use crate::domain::model::player::Player;
+use crate::domain::model::error::DomainError;
 use crate::domain::service::hand_evaluation::HandEvaluationService;
 
 pub struct GameRuleService;
@@ -10,17 +11,17 @@ impl GameRuleService {
     pub fn available_actions(game: &Game, player_index: usize) -> Vec<BetAction> {
         let mut actions = Vec::new();
         
-        if game.current_phase() != GamePhase::Betting {
+        if player_index >= game.players().len() {
             return actions;
         }
         
-        if player_index >= game.players().len() {
+        if game.current_phase() != GamePhase::Betting {
             return actions;
         }
         
         let player = &game.players()[player_index];
         
-        // フォールド済みかオールインしているプレイヤーは何もできない
+        // フォールド済みやオールインのプレイヤーは何もできない
         if player.is_folded() || player.is_all_in() {
             return actions;
         }
@@ -28,34 +29,26 @@ impl GameRuleService {
         // フォールドは常に可能
         actions.push(BetAction::Fold);
         
-        let current_bet = game.current_bet();
-        let player_bet = player.current_bet();
-        
-        // 現在のベットに対する追加ベット額を計算
-        let call_amount = current_bet.saturating_sub(player_bet);
-        
-        // チップがない場合はフォールドのみ
-        if player.chips() == 0 {
-            return actions;
-        }
-        
-        // 現在のベットがゼロか、プレイヤーが既に最大ベット額を出している場合はチェック可能
-        if current_bet == 0 || current_bet == player_bet {
+        // 現在のベットが0か、既に最大ベット額を支払っている場合はチェック可能
+        if game.current_bet() == 0 || game.current_bet() == player.current_bet() {
             actions.push(BetAction::Check);
         }
         
-        // プレイヤーが現在のベットをコールできるなら
+        // コールが可能か（現在のベット額と自分のベット額の差額をチップで払えるか）
+        let call_amount = game.current_bet().saturating_sub(player.current_bet());
         if call_amount > 0 && player.chips() >= call_amount {
             actions.push(BetAction::Call);
         }
         
-        // レイズが可能（現在のベット額+最小ベット額以上のチップがある場合）
-        let min_raise = game.big_blind();
-        if player.chips() >= call_amount + min_raise {
-            actions.push(BetAction::Raise);
+        // レイズが可能か
+        if player.chips() > call_amount {
+            let min_raise_amount = call_amount + game.big_blind(); // 最小レイズ額
+            if player.chips() >= min_raise_amount {
+                actions.push(BetAction::Raise);
+            }
         }
         
-        // オールインは常に可能（ただしチップがある場合のみ）
+        // オールインは常に可能（ただしチップがある場合）
         if player.chips() > 0 {
             actions.push(BetAction::AllIn);
         }
@@ -69,22 +62,18 @@ impl GameRuleService {
         player_index: usize,
         action: BetAction,
         bet_amount: Option<u32>,
-    ) -> Result<(), &'static str> {
-        if game.current_phase() != GamePhase::Betting {
-            return Err("ベッティングフェーズではありません");
-        }
-        
+    ) -> Result<(), DomainError> {
         if player_index >= game.players().len() {
-            return Err("無効なプレイヤーインデックスです");
+            return Err(DomainError::InvalidGameOperation("無効なプレイヤーインデックスです".into()));
         }
         
-        if player_index != game.current_player_index() {
-            return Err("現在のプレイヤーのみアクションを実行できます");
+        if game.current_phase() != GamePhase::Betting {
+            return Err(DomainError::InvalidGameOperation("ベッティングフェーズでのみアクションが可能です".into()));
         }
         
         let available_actions = Self::available_actions(game, player_index);
         if !available_actions.contains(&action) {
-            return Err("そのアクションは現在実行できません");
+            return Err(DomainError::InvalidGameOperation("そのアクションは現在実行できません".into()));
         }
         
         match action {
@@ -92,12 +81,8 @@ impl GameRuleService {
                 game.players_mut()[player_index].fold();
             },
             BetAction::Check => {
-                // チェックは追加のベットなし
-                // 現在のベットとプレイヤーのベットが同じであることを確認
-                let current_bet = game.current_bet();
-                let player_bet = game.players()[player_index].current_bet();
-                if current_bet != player_bet {
-                    return Err("チェックはできません。現在のベットをコールするかフォールドしてください");
+                if game.current_bet() > game.players()[player_index].current_bet() {
+                    return Err(DomainError::InvalidGameOperation("チェックはできません。現在のベットをコールするかフォールドしてください".into()));
                 }
             },
             BetAction::Call => {
@@ -119,13 +104,13 @@ impl GameRuleService {
                     
                     // レイズは最低でも現在のベット+最小ベット額以上でなければならない
                     if raise_to < min_raise {
-                        return Err("レイズは現在のベット額+最小ベット額以上でなければなりません");
+                        return Err(DomainError::InvalidBet(format!("レイズは現在のベット額+最小ベット額以上でなければなりません（最小: {}）", min_raise)));
                     }
                     
                     // プレイヤーがベットする額を計算（既にベットしている額を差し引く）
                     let additional_bet = raise_to.saturating_sub(player_bet);
                     if !game.players()[player_index].can_afford(additional_bet) {
-                        return Err("そのレイズに必要なチップが足りません");
+                        return Err(DomainError::InvalidBet("そのレイズに必要なチップが足りません".into()));
                     }
                     
                     // レイズを実行
@@ -135,7 +120,7 @@ impl GameRuleService {
                     // 現在のベット額を更新
                     game.set_current_bet(raise_to);
                 } else {
-                    return Err("レイズにはベット額を指定する必要があります");
+                    return Err(DomainError::InvalidBet("レイズにはベット額を指定する必要があります".into()));
                 }
             },
             BetAction::AllIn => {
@@ -163,7 +148,7 @@ impl GameRuleService {
     }
     
     // ラウンドが終了したかチェック
-    fn check_round_completion(game: &mut Game) -> Result<(), &'static str> {
+    fn check_round_completion(game: &mut Game) -> Result<(), DomainError> {
         if game.current_phase() != GamePhase::Betting {
             return Ok(());
         }
@@ -183,7 +168,7 @@ impl GameRuleService {
         // 次のプレイヤーが見つからない場合、またはラウンドを一周した場合
         let dealer_index = game.dealer_index();
         if next_player_index == dealer_index || next_player_index == current_player_index || Self::is_betting_round_complete(game) {
-            game.end_betting_round()?;
+            game.end_betting_round().map_err(|e| DomainError::from(e))?;
         } else {
             let player_count = game.players().len();
             let next_index = (current_player_index + 1) % player_count;
@@ -289,14 +274,14 @@ impl GameRuleService {
     }
     
     // ポットを分配
-    pub fn distribute_pot(game: &mut Game) -> Result<Vec<(usize, u32)>, &'static str> {
+    pub fn distribute_pot(game: &mut Game) -> Result<Vec<(usize, u32)>, DomainError> {
         if game.current_phase() != GamePhase::Showdown {
-            return Err("ショーダウンフェーズでのみポットを分配できます");
+            return Err(DomainError::InvalidGameOperation("ショーダウンフェーズでのみポットを分配できます".into()));
         }
         
         let winners = Self::determine_winners(game);
         if winners.is_empty() {
-            return Err("勝者が決定できません");
+            return Err(DomainError::InvalidGameOperation("勝者が決定できません".into()));
         }
         
         let pot_amount = game.pot().total();

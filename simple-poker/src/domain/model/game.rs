@@ -1,11 +1,13 @@
 use uuid::Uuid;
+use serde::{Serialize, Deserialize};
 
 use super::bet::Pot;
 use super::card::Card;
 use super::deck::Deck;
 use super::player::Player;
+use super::error::DomainError;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GameVariant {
     FiveCardDraw,
     TexasHoldem,
@@ -30,7 +32,7 @@ impl GameVariant {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BettingRound {
     PreDraw,   // ファイブカードドローでの最初のベッティングラウンド
     PostDraw,  // ファイブカードドローでの2回目のベッティングラウンド
@@ -65,7 +67,7 @@ impl BettingRound {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GamePhase {
     NotStarted,
     Dealing,
@@ -75,7 +77,7 @@ pub enum GamePhase {
     Complete,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GameId(String);
 
 impl GameId {
@@ -110,17 +112,19 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn new(variant: GameVariant, small_blind: u32, big_blind: u32) -> Result<Self, &'static str> {
+    pub fn new(variant: GameVariant, small_blind: u32, big_blind: u32) -> Result<Self, DomainError> {
         // スモールブラインドがビッグブラインドより大きいとエラー
         if small_blind > big_blind {
-            return Err("スモールブラインドはビッグブラインド以下である必要があります");
+            return Err(DomainError::InvalidGameOperation("スモールブラインドはビッグブラインド以下である必要があります".into()));
         }
+        
+        let deck = Deck::new().map_err(|e| DomainError::InvalidState(e.to_string()))?;
         
         Ok(Self {
             id: GameId::new(),
             variant,
             players: Vec::new(),
-            deck: Deck::new()?,
+            deck,
             pot: Pot::new(),
             community_cards: Vec::new(),
             current_round: None,
@@ -141,18 +145,18 @@ impl Game {
         self.variant
     }
     
-    pub fn add_player(&mut self, player: Player) -> Result<(), &'static str> {
+    pub fn add_player(&mut self, player: Player) -> Result<(), DomainError> {
         if self.current_phase != GamePhase::NotStarted {
-            return Err("ゲームが既に開始されています");
+            return Err(DomainError::InvalidGameOperation("ゲームが既に開始されています".into()));
         }
         
         if self.players.len() >= 10 {
-            return Err("プレイヤー数の上限に達しています");
+            return Err(DomainError::InvalidGameOperation("プレイヤー数の上限に達しています".into()));
         }
         
         // プレイヤーIDが重複していないか確認
         if self.players.iter().any(|p| p.id() == player.id()) {
-            return Err("このプレイヤーIDは既に使用されています");
+            return Err(DomainError::InvalidGameOperation("このプレイヤーIDは既に使用されています".into()));
         }
         
         self.players.push(player);
@@ -215,13 +219,13 @@ impl Game {
         self.current_bet = amount;
     }
     
-    pub fn start_game(&mut self) -> Result<(), &'static str> {
+    pub fn start_game(&mut self) -> Result<(), DomainError> {
         if self.players.len() < 2 {
-            return Err("ゲームを開始するには最低2人のプレイヤーが必要です");
+            return Err(DomainError::InvalidGameOperation("ゲームを開始するには最低2人のプレイヤーが必要です".into()));
         }
         
         if self.current_phase != GamePhase::NotStarted {
-            return Err("ゲームは既に開始されています");
+            return Err(DomainError::InvalidGameOperation("ゲームは既に開始されています".into()));
         }
         
         // デッキをシャッフル
@@ -243,9 +247,9 @@ impl Game {
         Ok(())
     }
     
-    pub fn deal_cards(&mut self) -> Result<(), &'static str> {
+    pub fn deal_cards(&mut self) -> Result<(), DomainError> {
         if self.current_phase != GamePhase::Dealing {
-            return Err("カードを配るのはDealingフェーズでのみ可能です");
+            return Err(DomainError::InvalidGameOperation("カードを配るのはDealingフェーズでのみ可能です".into()));
         }
         
         let hand_size = self.variant.hand_size();
@@ -256,7 +260,7 @@ impl Game {
             let cards = self.deck.draw_multiple(hand_size);
             
             for card in cards {
-                player.hand_mut().add_card(card)?;
+                player.hand_mut().add_card(card).map_err(|e| DomainError::InvalidCard(e.to_string()))?;
             }
         }
         
@@ -271,13 +275,13 @@ impl Game {
         Ok(())
     }
     
-    pub fn post_blinds(&mut self) -> Result<(), &'static str> {
+    pub fn post_blinds(&mut self) -> Result<(), DomainError> {
         if self.current_phase != GamePhase::Betting || self.current_round != Some(BettingRound::PreFlop) {
-            return Err("ブラインドはベッティングフェーズのプリフロップでのみ投入可能です");
+            return Err(DomainError::InvalidGameOperation("ブラインドはベッティングフェーズのプリフロップでのみ投入可能です".into()));
         }
         
         if self.players.len() < 2 {
-            return Err("ブラインドを投入するには最低2人のプレイヤーが必要です");
+            return Err(DomainError::InvalidGameOperation("ブラインドを投入するには最低2人のプレイヤーが必要です".into()));
         }
         
         // スモールブラインドのプレイヤーを特定
@@ -322,13 +326,13 @@ impl Game {
     }
     
     // ラウンド終了時の処理
-    pub fn end_betting_round(&mut self) -> Result<(), &'static str> {
+    pub fn end_betting_round(&mut self) -> Result<(), DomainError> {
         if self.current_phase != GamePhase::Betting {
-            return Err("ベッティングラウンドが進行中ではありません");
+            return Err(DomainError::InvalidGameOperation("ベッティングラウンドが進行中ではありません".into()));
         }
         
         // 現在のラウンドを取得
-        let current_round = self.current_round.ok_or("現在のラウンドが設定されていません")?;
+        let current_round = self.current_round.ok_or_else(|| DomainError::InvalidState("現在のラウンドが設定されていません".into()))?;
         
         // プレイヤーのベット額をリセット
         for player in &mut self.players {
@@ -379,13 +383,13 @@ impl Game {
     }
     
     // ファイブカードドローのカード交換処理
-    pub fn exchange_cards(&mut self, player_index: usize, card_indices: &[usize]) -> Result<(), &'static str> {
+    pub fn exchange_cards(&mut self, player_index: usize, card_indices: &[usize]) -> Result<(), DomainError> {
         if self.current_phase != GamePhase::Drawing {
-            return Err("カード交換はドローフェーズでのみ可能です");
+            return Err(DomainError::InvalidGameOperation("カード交換はドローフェーズでのみ可能です".into()));
         }
         
         if player_index >= self.players.len() {
-            return Err("無効なプレイヤーインデックスです");
+            return Err(DomainError::InvalidGameOperation("無効なプレイヤーインデックスです".into()));
         }
         
         let player = &mut self.players[player_index];
@@ -393,7 +397,7 @@ impl Game {
         // 指定されたカードを交換
         for &index in card_indices {
             if index >= player.hand().size() {
-                return Err("無効なカードインデックスです");
+                return Err(DomainError::InvalidGameOperation("無効なカードインデックスです".into()));
             }
             
             if let Some(new_card) = self.deck.draw() {
@@ -402,7 +406,7 @@ impl Game {
                     self.deck.add_card(old_card);
                 }
             } else {
-                return Err("デッキにカードが残っていません");
+                return Err(DomainError::InvalidGameOperation("デッキにカードが残っていません".into()));
             }
         }
         
@@ -418,9 +422,9 @@ impl Game {
     }
     
     // ゲームをリセットして新しいハンドを開始する準備
-    pub fn reset_for_new_hand(&mut self) -> Result<(), &'static str> {
+    pub fn reset_for_new_hand(&mut self) -> Result<(), DomainError> {
         // デッキをリセット
-        self.deck = Deck::new()?;
+        self.deck = Deck::new().map_err(|e| DomainError::InvalidState(e.to_string()))?;
         
         // ポットをクリア
         self.pot.clear();
@@ -461,7 +465,7 @@ impl Game {
         small_blind: u32,
         big_blind: u32,
         current_bet: u32,
-    ) -> Result<Self, &'static str> {
+    ) -> Result<Self, DomainError> {
         let mut game = Self::new(variant, small_blind, big_blind)?;
         
         // IDの設定

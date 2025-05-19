@@ -1,5 +1,6 @@
 use crate::domain::model::game::GameId;
 use crate::domain::model::player::PlayerId;
+use crate::domain::model::error::DomainError;
 
 #[derive(Debug, Clone)]
 pub struct GameHistoryEntry {
@@ -12,7 +13,7 @@ pub struct GameHistoryEntry {
 }
 
 pub trait GameHistoryRepository {
-    fn save(&mut self, entry: &GameHistoryEntry) -> Result<(), String>;
+    fn save(&mut self, entry: &GameHistoryEntry) -> Result<(), DomainError>;
     fn find_by_game_id(&self, game_id: &GameId) -> Option<GameHistoryEntry>;
     fn find_by_player_id(&self, player_id: &PlayerId) -> Vec<GameHistoryEntry>;
     fn find_all(&self) -> Vec<GameHistoryEntry>;

@@ -8,6 +8,7 @@ use chrono::DateTime;
 
 use crate::domain::model::game::GameId;
 use crate::domain::model::player::PlayerId;
+use crate::domain::model::error::DomainError;
 use crate::domain::repository::game_history_repository::{GameHistoryEntry, GameHistoryRepository};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -135,10 +136,10 @@ impl FileGameHistoryRepository {
 }
 
 impl GameHistoryRepository for FileGameHistoryRepository {
-    fn save(&mut self, entry: &GameHistoryEntry) -> Result<(), String> {
+    fn save(&mut self, entry: &GameHistoryEntry) -> Result<(), DomainError> {
         let key = format!("{}_{}", entry.game_id.value(), entry.timestamp.to_rfc3339());
         self.entries.insert(key, entry.clone());
-        self.save_entries()
+        self.save_entries().map_err(|e| DomainError::InvalidState(e))
     }
     
     fn find_by_game_id(&self, game_id: &GameId) -> Option<GameHistoryEntry> {

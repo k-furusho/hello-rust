@@ -1,11 +1,13 @@
 use std::path::Path;
 use simple_poker::application::usecase::create_game_usecase::{CreateGameParams, CreateGameUseCase};
 use simple_poker::domain::model::game::GameVariant;
+use simple_poker::domain::model::error::DomainError;
 use simple_poker::domain::repository::game_repository::GameRepository;
 use simple_poker::domain::repository::player_repository::PlayerRepository;
 use simple_poker::infrastructure::repository::file::game_repository_file::FileGameRepository;
 use simple_poker::infrastructure::repository::inmemory::game_repository_inmemory::InMemoryGameRepository;
 use simple_poker::infrastructure::repository::inmemory::player_repository_inmemory::InMemoryPlayerRepository;
+use simple_poker::infrastructure::service::event::inmemory_event_publisher::InMemoryEventPublisher;
 use simple_poker::presentation::cli::menu::MenuController;
 use std::env;
 
@@ -22,6 +24,9 @@ fn main() {
         StorageType::InMemory
     };
     
+    // イベントパブリッシャーの初期化
+    let event_publisher = InMemoryEventPublisher::new();
+    
     // リポジトリの初期化
     match storage_type {
         StorageType::InMemory => {
@@ -30,12 +35,12 @@ fn main() {
             let player_repo = InMemoryPlayerRepository::new();
             
             // デモゲームを作成（オプション）
-            if let Err(e) = create_demo_game(&mut game_repo.clone()) {
+            if let Err(e) = create_demo_game(&mut game_repo.clone(), event_publisher.clone()) {
                 eprintln!("デモゲーム作成エラー: {}", e);
             }
             
             // メニューコントローラの作成と実行
-            let mut menu = MenuController::new(game_repo, player_repo);
+            let mut menu = MenuController::new(game_repo, player_repo, event_publisher);
             menu.run();
         },
         StorageType::File => {
@@ -44,8 +49,13 @@ fn main() {
                 Ok(game_repo) => {
                     let player_repo = InMemoryPlayerRepository::new();
                     
+                    // デモゲームを作成（オプション）
+                    if let Err(e) = create_demo_game(&mut game_repo.clone(), event_publisher.clone()) {
+                        eprintln!("デモゲーム作成エラー: {}", e);
+                    }
+                    
                     // メニューコントローラの作成と実行
-                    let mut menu = MenuController::new(game_repo, player_repo);
+                    let mut menu = MenuController::new(game_repo, player_repo, event_publisher);
                     menu.run();
                 },
                 Err(e) => {
@@ -56,7 +66,7 @@ fn main() {
                     let player_repo = InMemoryPlayerRepository::new();
                     
                     // メニューコントローラの作成と実行
-                    let mut menu = MenuController::new(game_repo, player_repo);
+                    let mut menu = MenuController::new(game_repo, player_repo, event_publisher.clone());
                     menu.run();
                 }
             }
@@ -71,14 +81,18 @@ enum StorageType {
 }
 
 // デモゲームを作成する関数
-fn create_demo_game<R: GameRepository + Clone>(repo: &mut R) -> Result<(), String> {
+fn create_demo_game<R: GameRepository + Clone, E: Clone>(
+    repo: &mut R, 
+    event_publisher: E
+) -> Result<(), DomainError> 
+where E: simple_poker::domain::model::event::EventPublisher {
     let params = CreateGameParams {
         variant: GameVariant::FiveCardDraw,
         small_blind: 5,
         big_blind: 10,
     };
     
-    let mut usecase = CreateGameUseCase::new(repo.clone());
+    let mut usecase = CreateGameUseCase::new(repo.clone(), event_publisher);
     usecase.execute(params)?;
     
     Ok(())

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use crate::domain::model::game::{Game, GameId};
+use crate::domain::model::error::DomainError;
 use crate::domain::repository::game_repository::GameRepository;
 
 #[derive(Clone)]
@@ -24,8 +25,8 @@ impl Default for InMemoryGameRepository {
 }
 
 impl GameRepository for InMemoryGameRepository {
-    fn save(&mut self, game: &Game) -> Result<(), String> {
-        let mut games = self.games.lock().map_err(|_| "ロックの取得に失敗しました".to_string())?;
+    fn save(&mut self, game: &Game) -> Result<(), DomainError> {
+        let mut games = self.games.lock().map_err(|_| DomainError::InvalidState("ロックの取得に失敗しました".into()))?;
         games.insert(game.id().value().to_string(), game.clone());
         Ok(())
     }
@@ -43,8 +44,8 @@ impl GameRepository for InMemoryGameRepository {
         games.values().cloned().collect()
     }
     
-    fn delete(&mut self, id: &GameId) -> Result<(), String> {
-        let mut games = self.games.lock().map_err(|_| "ロックの取得に失敗しました".to_string())?;
+    fn delete(&mut self, id: &GameId) -> Result<(), DomainError> {
+        let mut games = self.games.lock().map_err(|_| DomainError::InvalidState("ロックの取得に失敗しました".into()))?;
         games.remove(id.value());
         Ok(())
     }

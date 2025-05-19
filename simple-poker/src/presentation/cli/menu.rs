@@ -9,18 +9,34 @@ use crate::domain::repository::player_repository::PlayerRepository;
 use crate::domain::service::game_rule::GameRuleService;
 use crate::presentation::cli::game_view::GameView;
 use crate::presentation::cli::input_handler::InputHandler;
+use crate::domain::model::game::{Game, GameVariant};
+use crate::domain::model::player::PlayerId;
+use crate::domain::model::event::{EventPublisher, EventSubscriber};
+use crate::domain::model::bet::BetAction;
 
-pub struct MenuController<G: GameRepository + Clone, P: PlayerRepository + Clone> {
+pub struct MenuController<G, P, E>
+where 
+    G: GameRepository + Clone,
+    P: PlayerRepository + Clone,
+    E: EventPublisher + EventSubscriber + Clone,
+{
     game_repository: G,
     player_repository: P,
+    event_publisher: E,
     current_game_id: Option<GameId>,
 }
 
-impl<G: GameRepository + Clone, P: PlayerRepository + Clone> MenuController<G, P> {
-    pub fn new(game_repository: G, player_repository: P) -> Self {
+impl<G, P, E> MenuController<G, P, E>
+where 
+    G: GameRepository + Clone,
+    P: PlayerRepository + Clone,
+    E: EventPublisher + EventSubscriber + Clone,
+{
+    pub fn new(game_repository: G, player_repository: P, event_publisher: E) -> Self {
         Self {
             game_repository,
             player_repository,
+            event_publisher,
             current_game_id: None,
         }
     }
@@ -79,7 +95,10 @@ impl<G: GameRepository + Clone, P: PlayerRepository + Clone> MenuController<G, P
             big_blind,
         };
         
-        let mut usecase = CreateGameUseCase::new(self.game_repository.clone());
+        let mut usecase = CreateGameUseCase::new(
+            self.game_repository.clone(),
+            self.event_publisher.clone()
+        );
         match usecase.execute(params) {
             Ok(game_id) => {
                 println!("\nゲーム作成成功！ ゲームID: {}", game_id.value());

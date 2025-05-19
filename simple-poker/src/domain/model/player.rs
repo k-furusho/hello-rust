@@ -1,11 +1,13 @@
 use std::fmt;
 use uuid::Uuid;
+use serde::{Serialize, Deserialize};
 
 use super::bet::Chips;
 use super::hand::Hand;
 use super::card::Card;
+use super::error::DomainError;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PlayerId(String);
 
 impl PlayerId {
@@ -130,7 +132,7 @@ impl Player {
         self.is_folded = true;
     }
     
-    pub fn place_bet(&mut self, amount: u32) -> Result<u32, &'static str> {
+    pub fn place_bet(&mut self, amount: u32) -> Result<u32, DomainError> {
         if amount == 0 {
             return Ok(0);
         }
@@ -142,7 +144,7 @@ impl Player {
             self.is_all_in = true;
             available
         } else {
-            self.chips.subtract(amount)?;
+            self.chips.subtract(amount).map_err(|e| DomainError::from(e))?;
             if self.chips.is_zero() {
                 self.is_all_in = true;
             }

@@ -1,6 +1,7 @@
 use crate::domain::model::bet::BetAction;
 use crate::domain::model::game::{Game, GamePhase, GameVariant};
 use crate::domain::model::player::Player;
+use crate::domain::model::error::DomainError;
 use crate::domain::service::game_rule::GameRuleService;
 use crate::domain::service::hand_evaluation::HandEvaluationService;
 use crate::presentation::cli::input_handler::InputHandler;
@@ -122,8 +123,8 @@ impl GameView {
         println!();
     }
     
-    pub fn display_error(error: &str) {
-        println!("\n[エラー] {}\n", error);
+    pub fn display_error<T: AsRef<str>>(error: T) {
+        println!("\n[エラー] {}\n", error.as_ref());
     }
     
     pub fn phase_to_string(phase: GamePhase) -> &'static str {

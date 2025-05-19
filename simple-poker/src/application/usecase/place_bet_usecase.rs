@@ -1,5 +1,5 @@
 use crate::domain::model::bet::BetAction;
-use crate::domain::model::game::{GameId, GameSerializedData};
+use crate::domain::model::game::GameId;
 use crate::domain::model::player::PlayerId;
 use crate::domain::repository::game_repository::GameRepository;
 use crate::domain::service::game_rule::GameRuleService;
@@ -49,7 +49,7 @@ impl<R: GameRepository> PlaceBetUseCase<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::model::game::{Game, GameVariant, GamePhase};
+    use crate::domain::model::game::{Game, GameVariant, GamePhase, GameSerializedData};
     use crate::domain::model::player::Player;
     use crate::infrastructure::repository::inmemory::game_repository_inmemory::InMemoryGameRepository;
     

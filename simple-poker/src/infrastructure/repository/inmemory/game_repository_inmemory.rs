@@ -5,9 +5,14 @@ use crate::domain::model::game::{Game, GameId};
 use crate::domain::model::error::DomainError;
 use crate::domain::repository::game_repository::GameRepository;
 
+/// ゲームIDとゲームのマッピングを表す型
+type GameMap = HashMap<String, Game>;
+/// スレッドセーフなゲームマップ
+type ThreadSafeGameMap = Arc<Mutex<GameMap>>;
+
 #[derive(Clone)]
 pub struct InMemoryGameRepository {
-    games: Arc<Mutex<HashMap<String, Game>>>,
+    games: ThreadSafeGameMap,
 }
 
 impl InMemoryGameRepository {

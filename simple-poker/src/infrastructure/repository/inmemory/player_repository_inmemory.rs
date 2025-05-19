@@ -5,9 +5,14 @@ use crate::domain::model::player::{Player, PlayerId};
 use crate::domain::model::error::DomainError;
 use crate::domain::repository::player_repository::PlayerRepository;
 
+/// プレイヤーIDとプレイヤーのマッピングを表す型
+type PlayerMap = HashMap<String, Player>;
+/// スレッドセーフなプレイヤーマップ
+type ThreadSafePlayerMap = Arc<Mutex<PlayerMap>>;
+
 #[derive(Clone)]
 pub struct InMemoryPlayerRepository {
-    players: Arc<Mutex<HashMap<String, Player>>>,
+    players: ThreadSafePlayerMap,
 }
 
 impl InMemoryPlayerRepository {

@@ -42,7 +42,7 @@ pub struct Player {
     is_dealer: bool,
 }
 
-
+/// デシリアライズのためのデータ構造体
 pub struct PlayerSerializedData {
     pub id: PlayerId,
     pub name: String,
@@ -68,11 +68,11 @@ impl Player {
         }
     }
     
-    // デシリアライズ用のファクトリメソッド
-    pub fn from_serialized(data: PlayerSerializedData) -> Result<Self, &'static str> {
+    /// デシリアライズ用のファクトリメソッド
+    pub fn from_serialized(data: PlayerSerializedData) -> Result<Self, DomainError> {
         let mut hand = Hand::new(5);
         for card in data.cards {
-            hand.add_card(card)?;
+            hand.add_card(card).map_err(|e| DomainError::InvalidCard(e.to_string()))?;
         }
         
         Ok(Self {
@@ -176,6 +176,17 @@ impl Player {
     
     pub fn can_afford(&self, amount: u32) -> bool {
         self.chips.amount() >= amount
+    }
+
+    /// 手札にカードを追加
+    pub fn add_card_to_hand(&mut self, card: Card) -> Result<(), DomainError> {
+        self.hand.add_card(card).map_err(|e| DomainError::InvalidCard(e.to_string()))
+    }
+
+    /// 手札をリセット
+    pub fn reset_hand(&mut self, max_size: usize) -> Result<(), DomainError> {
+        self.hand = Hand::new(max_size);
+        Ok(())
     }
 }
 

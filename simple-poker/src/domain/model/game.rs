@@ -5,7 +5,7 @@ use super::bet::Pot;
 use super::card::Card;
 use super::deck::Deck;
 use super::player::Player;
-use super::error::DomainError;
+use super::error::{DomainError, DeckError};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GameVariant {
@@ -344,50 +344,41 @@ impl Game {
     // ラウンド終了時の処理
     pub fn end_betting_round(&mut self) -> Result<(), DomainError> {
         if self.current_phase != GamePhase::Betting {
-            return Err(DomainError::InvalidGameOperation("ベッティングラウンドが進行中ではありません".into()));
+            return Err(DomainError::InvalidPhase {
+                expected: GamePhase::Betting,
+                actual: self.current_phase,
+            });
         }
         
         // 現在のラウンドを取得
-        let current_round = self.current_round.ok_or_else(|| DomainError::InvalidState("現在のラウンドが設定されていません".into()))?;
+        let current_round = self.current_round.ok_or_else(|| 
+            DomainError::InvalidState("現在のラウンドが設定されていません".into()))?;
         
         // プレイヤーのベット額をリセット
+        self.reset_all_player_bets();
+        
+        // 次のラウンドへの移行を処理
+        self.transition_to_next_round(current_round)?;
+        
+        Ok(())
+    }
+    
+    // プレイヤーのベット額をリセット
+    fn reset_all_player_bets(&mut self) {
         for player in &mut self.players {
             player.reset_bet();
         }
-        
-        // 次のラウンドがあるかどうかを確認
+    }
+    
+    // 次のラウンドへ移行
+    fn transition_to_next_round(&mut self, current_round: BettingRound) -> Result<(), DomainError> {
         match current_round.next(self.variant) {
             Some(next_round) => {
                 self.current_round = Some(next_round);
                 self.current_bet = 0;
                 
-                // テキサスホールデムとオマハの場合、コミュニティカードを配る
-                match (self.variant, next_round) {
-                    (GameVariant::TexasHoldem | GameVariant::Omaha, BettingRound::Flop) => {
-                        // フロップ：3枚のカードを開く
-                        for _ in 0..3 {
-                            if let Some(card) = self.deck.draw() {
-                                self.community_cards.push(card);
-                            }
-                        }
-                    },
-                    (GameVariant::TexasHoldem | GameVariant::Omaha, BettingRound::Turn | BettingRound::River) => {
-                        // ターンとリバー：それぞれ1枚のカードを開く
-                        if let Some(card) = self.deck.draw() {
-                            self.community_cards.push(card);
-                        }
-                    },
-                    (GameVariant::FiveCardDraw, BettingRound::PostDraw) => {
-                        // ファイブカードドローの場合、カード交換フェーズに移行
-                        self.current_phase = GamePhase::Drawing;
-                        return Ok(());
-                    },
-                    _ => {},
-                }
-                
-                // 次のラウンドのアクションを始めるプレイヤーを設定（ディーラーの次のプレイヤー）
-                self.current_player_index = self.next_active_player_index(self.dealer_index);
-                
+                self.handle_community_cards(next_round)?;
+                self.setup_next_round_player();
             },
             None => {
                 // 最後のラウンドが終了した場合、ショーダウンに移行
@@ -398,43 +389,120 @@ impl Game {
         Ok(())
     }
     
+    // コミュニティカードの処理
+    fn handle_community_cards(&mut self, round: BettingRound) -> Result<(), DomainError> {
+        match (self.variant, round) {
+            (GameVariant::TexasHoldem | GameVariant::Omaha, BettingRound::Flop) => {
+                self.deal_flop()?;
+            },
+            (GameVariant::TexasHoldem | GameVariant::Omaha, BettingRound::Turn | BettingRound::River) => {
+                self.deal_single_community_card()?;
+            },
+            (GameVariant::FiveCardDraw, BettingRound::PostDraw) => {
+                // ファイブカードドローの場合、カード交換フェーズに移行
+                self.current_phase = GamePhase::Drawing;
+            },
+            _ => {},
+        }
+        
+        Ok(())
+    }
+    
+    // フロップを配る
+    fn deal_flop(&mut self) -> Result<(), DomainError> {
+        // フロップ：3枚のカードを開く
+        for _ in 0..3 {
+            if let Some(card) = self.deck.draw() {
+                self.community_cards.push(card);
+            } else {
+                return Err(DomainError::DeckError(DeckError::EmptyDeck));
+            }
+        }
+        Ok(())
+    }
+    
+    // 1枚のコミュニティカードを配る（ターン・リバー用）
+    fn deal_single_community_card(&mut self) -> Result<(), DomainError> {
+        // ターンとリバー：それぞれ1枚のカードを開く
+        if let Some(card) = self.deck.draw() {
+            self.community_cards.push(card);
+            Ok(())
+        } else {
+            Err(DomainError::DeckError(DeckError::EmptyDeck))
+        }
+    }
+    
+    // 次のラウンドのプレイヤーを設定
+    fn setup_next_round_player(&mut self) {
+        // 次のラウンドのアクションを始めるプレイヤーを設定（ディーラーの次のプレイヤー）
+        self.current_player_index = self.next_active_player_index(self.dealer_index);
+    }
+    
     // ファイブカードドローのカード交換処理
     pub fn exchange_cards(&mut self, player_index: usize, card_indices: &[usize]) -> Result<(), DomainError> {
+        self.validate_card_exchange_phase()?;
+        self.validate_player_index(player_index)?;
+        
+        // カード交換を実行
+        self.perform_card_exchange(player_index, card_indices)?;
+        
+        // 次のプレイヤーの手番を設定
+        self.current_player_index = self.next_active_player_index(player_index);
+        
+        // すべてのプレイヤーが交換を終えたかチェック
+        self.check_drawing_phase_completion();
+        
+        Ok(())
+    }
+    
+    // カード交換が可能なフェーズかどうかを検証
+    fn validate_card_exchange_phase(&self) -> Result<(), DomainError> {
         if self.current_phase != GamePhase::Drawing {
-            return Err(DomainError::InvalidGameOperation("カード交換はドローフェーズでのみ可能です".into()));
+            return Err(DomainError::InvalidPhase {
+                expected: GamePhase::Drawing,
+                actual: self.current_phase,
+            });
         }
-        
+        Ok(())
+    }
+    
+    // プレイヤーインデックスが有効かどうかを検証
+    fn validate_player_index(&self, player_index: usize) -> Result<(), DomainError> {
         if player_index >= self.players.len() {
-            return Err(DomainError::InvalidGameOperation("無効なプレイヤーインデックスです".into()));
+            return Err(DomainError::InvalidGameOperation(format!("無効なプレイヤーインデックスです: {}", player_index)));
         }
-        
+        Ok(())
+    }
+    
+    // 実際のカード交換処理
+    fn perform_card_exchange(&mut self, player_index: usize, card_indices: &[usize]) -> Result<(), DomainError> {
         let player = &mut self.players[player_index];
         
         // 指定されたカードを交換
         for &index in card_indices {
             if index >= player.hand().size() {
-                return Err(DomainError::InvalidGameOperation("無効なカードインデックスです".into()));
+                return Err(DomainError::DeckError(DeckError::InvalidCardIndex(index)));
             }
             
             if let Some(new_card) = self.deck.draw() {
                 if let Ok(old_card) = player.hand_mut().replace_card(index, new_card) {
-                    // 古いカードをデッキに戻してシャッフル（オプション）
+                    // 古いカードをデッキに戻す
                     self.deck.add_card(old_card);
                 }
             } else {
-                return Err(DomainError::InvalidGameOperation("デッキにカードが残っていません".into()));
+                return Err(DomainError::DeckError(DeckError::EmptyDeck));
             }
         }
         
-        // すべてのプレイヤーが交換を終えたかチェック
-        self.current_player_index = self.next_active_player_index(player_index);
-        
+        Ok(())
+    }
+    
+    // ドローフェーズの完了チェック
+    fn check_drawing_phase_completion(&mut self) {
         if self.current_player_index == 0 {
             // すべてのプレイヤーがカード交換を完了したら、次のベッティングラウンドへ
             self.current_phase = GamePhase::Betting;
         }
-        
-        Ok(())
     }
     
     // ゲームをリセットして新しいハンドを開始する準備

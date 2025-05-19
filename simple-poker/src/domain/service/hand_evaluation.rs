@@ -3,6 +3,11 @@ use std::collections::HashMap;
 use crate::domain::model::card::Card;
 use crate::domain::model::game::GameVariant;
 
+/// 役の強さを表す値のリスト（高いカードからのランク値）
+type HandValues = Vec<u8>;
+/// カード枚数のマッピング（ランク → 枚数）
+type RankCountMap = HashMap<u8, u8>;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum HandRank {
     RoyalStraightFlush = 9,
@@ -39,11 +44,11 @@ impl std::fmt::Display for HandRank {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct HandStrength {
     rank: HandRank,
-    values: Vec<u8>, // タイブレーク用の値（降順）
+    values: HandValues, // ここで型エイリアスを使用
 }
 
 impl HandStrength {
-    pub fn new(rank: HandRank, values: Vec<u8>) -> Self {
+    pub fn new(rank: HandRank, values: HandValues) -> Self { // ここでも使用
         Self { rank, values }
     }
     
@@ -51,7 +56,7 @@ impl HandStrength {
         self.rank
     }
     
-    pub fn values(&self) -> &[u8] {
+    pub fn values(&self) -> &HandValues { // ここでも使用
         &self.values
     }
 }
@@ -255,7 +260,7 @@ impl HandEvaluationService {
     }
     
     // 各ランクの出現回数をカウント
-    fn count_ranks(cards: &[Card]) -> HashMap<u8, u8> {
+    fn count_ranks(cards: &[Card]) -> RankCountMap {
         let mut rank_counts = HashMap::new();
         for card in cards {
             *rank_counts.entry(card.rank()).or_insert(0) += 1;
@@ -264,7 +269,7 @@ impl HandEvaluationService {
     }
     
     // 出現回数に基づいて役を判定
-    fn evaluate_by_counts(rank_counts: HashMap<u8, u8>, cards: &[Card]) -> HandStrength {
+    fn evaluate_by_counts(rank_counts: RankCountMap, cards: &[Card]) -> HandStrength {
         let mut pairs = Vec::new();
         let mut three_of_a_kind = None;
         let mut four_of_a_kind = None;

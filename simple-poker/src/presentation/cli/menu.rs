@@ -3,6 +3,7 @@ use crate::application::usecase::create_game_usecase::{CreateGameParams, CreateG
 use crate::application::usecase::exchange_cards_usecase::{ExchangeCardsParams, ExchangeCardsUseCase};
 use crate::application::usecase::place_bet_usecase::{PlaceBetParams, PlaceBetUseCase};
 use crate::application::usecase::start_game_usecase::StartGameUseCase;
+use crate::application::usecase::start_game_usecase::StartGameParams;
 use crate::domain::model::game::{GameId, GamePhase};
 use crate::domain::repository::game_repository::GameRepository;
 use crate::domain::repository::player_repository::PlayerRepository;
@@ -178,7 +179,10 @@ where
         
         // ゲームを開始
         let mut start_usecase = StartGameUseCase::new(self.game_repository.clone());
-        if let Err(e) = start_usecase.execute(&game_id) {
+        let params = StartGameParams {
+            game_id: game_id.clone(),
+        };
+        if let Err(e) = start_usecase.execute(params) {
             GameView::display_error(&e);
             return;
         }
@@ -321,7 +325,10 @@ where
                 }
                 
                 // ゲームを再開始
-                if let Err(e) = restart_usecase.execute(&game_id) {
+                let params = StartGameParams {
+                    game_id: game_id.clone(),
+                };
+                if let Err(e) = restart_usecase.execute(params) {
                     GameView::display_error(&e);
                     return;
                 }

@@ -1,5 +1,5 @@
 use crate::domain::model::bet::BetAction;
-use crate::domain::model::game::GameId;
+use crate::domain::model::game::{GameId, GamePhase};
 use crate::domain::model::player::PlayerId;
 use crate::domain::repository::game_repository::GameRepository;
 use crate::domain::service::game_rule::GameRuleService;
@@ -43,5 +43,201 @@ impl<R: GameRepository> PlaceBetUseCase<R> {
         self.game_repository.save(&game)?;
         
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::model::game::{Game, GameVariant, GamePhase};
+    use crate::domain::model::player::Player;
+    use crate::infrastructure::repository::inmemory::game_repository_inmemory::InMemoryGameRepository;
+    
+    // テスト用のゲーム作成
+    fn create_test_game() -> Game {
+        let mut game = Game::new(GameVariant::FiveCardDraw, 5, 10).unwrap();
+        
+        // プレイヤーを追加
+        game.add_player(Player::new("プレイヤー1".to_string(), 1000)).unwrap();
+        game.add_player(Player::new("プレイヤー2".to_string(), 1000)).unwrap();
+        
+        // ゲーム開始
+        game.start_game().unwrap();
+        game.deal_cards().unwrap();
+        
+        game
+    }
+    
+    #[test]
+    fn プレイヤーのアクション実行_チェック() {
+        // 準備
+        let mut game_repo = InMemoryGameRepository::new();
+        let mut game = create_test_game();
+        let game_id = game.id().clone();
+        let player_id = game.players()[0].id().clone();
+        
+        // ベット額をゼロに設定
+        game.set_current_bet(0);
+        
+        // ゲームをリポジトリに保存
+        game_repo.save(&game).unwrap();
+        
+        // ユースケース実行
+        let mut usecase = PlaceBetUseCase::new(game_repo.clone());
+        
+        let params = PlaceBetParams {
+            game_id: game_id.clone(),
+            player_id: player_id.clone(),
+            action: BetAction::Check,
+            bet_amount: None,
+        };
+        
+        let result = usecase.execute(params);
+        assert!(result.is_ok(), "チェックアクションの実行に失敗: {}", result.err().unwrap_or_default());
+        
+        // ゲームの状態を確認
+        let updated_game = game_repo.find_by_id(&game_id).unwrap();
+        assert_eq!(updated_game.current_bet(), 0);
+        assert!(!updated_game.players()[0].is_folded());
+    }
+    
+    #[test]
+    fn プレイヤーのアクション実行_フォールド() {
+        let mut game_repo = InMemoryGameRepository::new();
+        let mut game = create_test_game();
+        let game_id = game.id().clone();
+        let player_id = game.players()[0].id().clone();
+        
+        // ベット額を設定
+        game.set_current_bet(20);
+        
+        // ゲームをリポジトリに保存
+        game_repo.save(&game).unwrap();
+        
+        // ユースケース実行
+        let mut usecase = PlaceBetUseCase::new(game_repo.clone());
+        
+        let params = PlaceBetParams {
+            game_id: game_id.clone(),
+            player_id,
+            action: BetAction::Fold,
+            bet_amount: None,
+        };
+        
+        let result = usecase.execute(params);
+        assert!(result.is_ok());
+        
+        // プレイヤーがフォールドしたことを確認
+        let updated_game = game_repo.find_by_id(&game_id).unwrap();
+        assert!(updated_game.players()[0].is_folded());
+    }
+    
+    #[test]
+    fn プレイヤーのアクション実行_レイズ() {
+        let mut game_repo = InMemoryGameRepository::new();
+        let mut game = create_test_game();
+        let game_id = game.id().clone();
+        let player_id = game.players()[0].id().clone();
+        
+        // 初期チップ量を記録
+        let initial_chips = game.players()[0].chips();
+        
+        // ベッティングフェーズに設定
+        game = Game::from_serialized(
+            game.id().clone(),
+            game.variant(),
+            game.players().to_vec(),
+            game.community_cards().to_vec(),
+            0, // ポット額を0に初期化
+            GamePhase::Betting,
+            game.current_round(),
+            0, // カレントプレイヤーを0に設定
+            game.dealer_index(),
+            game.small_blind(),
+            game.big_blind(),
+            10 // 現在のベット額を10に設定
+        ).unwrap();
+        
+        // ゲームをリポジトリに保存
+        game_repo.save(&game).unwrap();
+        
+        // ユースケース実行
+        let mut usecase = PlaceBetUseCase::new(game_repo.clone());
+        
+        let params = PlaceBetParams {
+            game_id: game_id.clone(),
+            player_id,
+            action: BetAction::Raise,
+            bet_amount: Some(30), // 30にレイズ
+        };
+        
+        let result = usecase.execute(params);
+        
+        // エラーがあれば詳細を表示
+        if let Err(ref err) = result {
+            println!("レイズエラー: {}", err);
+        }
+        
+        assert!(result.is_ok(), "レイズに失敗: {}", result.err().unwrap_or_default());
+        
+        // ゲームの状態を確認
+        let updated_game = game_repo.find_by_id(&game_id).unwrap();
+        
+        // デバッグ情報を出力
+        println!("現在のフェーズ: {:?}", updated_game.current_phase());
+        println!("カレントベット: {}", updated_game.current_bet());
+        println!("プレイヤーのベット: {}", updated_game.players()[0].current_bet());
+        println!("プレイヤーの初期チップ: {}", initial_chips);
+        println!("プレイヤーの現在チップ: {}", updated_game.players()[0].chips());
+        println!("ポット額: {}", updated_game.pot().total());
+        
+        // カレントベットが更新されていることを確認
+        assert_eq!(updated_game.current_bet(), 30, "カレントベットが30に更新されていません: {}", updated_game.current_bet());
+        
+        // チップが減少していることを確認
+        assert_eq!(updated_game.players()[0].chips(), initial_chips - 30, "プレイヤーのチップが正しく減少していません");
+        
+        // ポット額が増加していることを確認
+        assert_eq!(updated_game.pot().total(), 30, "ポット額が正しく増加していません");
+    }
+    
+    #[test]
+    fn 存在しないゲームへのアクション() {
+        let game_repo = InMemoryGameRepository::new();
+        let mut usecase = PlaceBetUseCase::new(game_repo);
+        
+        let params = PlaceBetParams {
+            game_id: GameId::new(),
+            player_id: PlayerId::new(),
+            action: BetAction::Check,
+            bet_amount: None,
+        };
+        
+        let result = usecase.execute(params);
+        assert!(result.is_err());
+        assert!(result.err().unwrap().contains("見つかりません"));
+    }
+    
+    #[test]
+    fn 存在しないプレイヤーのアクション() {
+        let mut game_repo = InMemoryGameRepository::new();
+        let game = create_test_game();
+        let game_id = game.id().clone();
+        
+        // ゲームをリポジトリに保存
+        game_repo.save(&game).unwrap();
+        
+        let mut usecase = PlaceBetUseCase::new(game_repo);
+        
+        let params = PlaceBetParams {
+            game_id,
+            player_id: PlayerId::new(), // 存在しないプレイヤーID
+            action: BetAction::Check,
+            bet_amount: None,
+        };
+        
+        let result = usecase.execute(params);
+        assert!(result.is_err());
+        assert!(result.err().unwrap().contains("参加していません"));
     }
 } 

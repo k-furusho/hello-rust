@@ -1,0 +1,46 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+```
+simple-poker/
+├── src/
+│   ├── domain/
+│   │   ├── model/
+│   │   │   ├── card.rs      # カード関連モデル
+│   │   │   ├── player.rs    # プレイヤーモデル
+│   │   │   ├── game.rs      # ゲーム状態モデル
+│   │   │   ├── bet.rs       # ベット関連モデル
+│   │   │   └── mod.rs
+│   │   ├── service/
+│   │   │   ├── hand_evaluation.rs
+│   │   │   ├── game_rule.rs
+│   │   │   └── mod.rs
+│   │   ├── repository/
+│   │   │   ├── player_repository.rs
+│   │   │   ├── game_repository.rs
+│   │   │   └── mod.rs
+│   │   └── mod.rs
+│   ├── application/
+│   │   ├── usecase/
+│   │   │   ├── start_game.rs
+│   │   │   ├── place_bet.rs
+│   │   │   ├── draw_card.rs
+│   │   │   └── mod.rs
+│   │   └── mod.rs
+│   ├── infrastructure/
+│   │   ├── repository/
+│   │   │   ├── inmemory/
+│   │   │   ├── sqlite/
+│   │   │   └── mod.rs
+│   │   ├── service/
+│   │   └── mod.rs
+│   ├── presentation/
+│   │   ├── cli/
+│   │   ├── web/
+│   │   └── mod.rs
+│   └── main.rs
+├── Cargo.toml
+└── README.md
+```

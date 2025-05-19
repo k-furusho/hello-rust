@@ -6,7 +6,11 @@
   "rust-analyzer.checkOnSave": true,
   "rust-analyzer.check.command": "clippy",
   "cSpell.words": [
+    "chrono",
     "clippy",
-    "nums"
+    "inmemory",
+    "nums",
+    "thiserror",
+    "usecase"
   ]
 }

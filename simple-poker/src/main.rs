@@ -1,7 +1,11 @@
-use rand::seq::SliceRandom;
-use std::collections::HashMap;
 use std::fmt;
-use std::io::{self};
+use std::collections::HashMap;
+use simple_poker::presentation::cli::menu::MenuController;
+use simple_poker::infrastructure::repository::inmemory::game_repository_inmemory::InMemoryGameRepository;
+use simple_poker::infrastructure::repository::inmemory::player_repository_inmemory::InMemoryPlayerRepository;
+use simple_poker::infrastructure::service::event::inmemory_event_publisher::InMemoryEventPublisher;
+
+const ROYAL_STRAIGHT: [i32; 5] = [1, 10, 11, 12, 13];
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Suit {
@@ -68,100 +72,15 @@ impl fmt::Display for HandRank {
     }
 }
 
-const HAND_SIZE: usize = 5;
-const MIN_RANK: i32 = 1;
-const MAX_RANK: i32 = 13;
-const RANKS: std::ops::RangeInclusive<i32> = MIN_RANK..=MAX_RANK;
-const ROYAL_STRAIGHT: [i32; 5] = [1, 10, 11, 12, 13];
-
 fn main() {
-    let mut deck = create_deck();
-    deck.shuffle(&mut rand::thread_rng());
-
-    let mut hand = draw_hand(&mut deck);
-    display_hand(&hand);
-
-    println!("入れ替えたいカードの番号を入力してください(例:1 2 3)");
-    let numbers = match get_user_input() {
-        Ok(nums) => nums,
-        Err(e) => {
-            println!("エラー: {}", e);
-            return;
-        }
-    };
-
-    replace_cards(&mut hand, &mut deck, &numbers);
-    display_hand(&hand);
-
-    evaluate_hand(&hand);
-}
-
-fn create_deck() -> Vec<Card> {
-    let suits = [Suit::Club, Suit::Diamond, Suit::Heart, Suit::Spade];
-    let mut deck = Vec::new();
-    for suit in suits {
-        for rank in RANKS {
-            deck.push(Card { suit, rank });
-        }
-    }
-    deck
-}
-
-fn draw_hand(deck: &mut Vec<Card>) -> Vec<Card> {
-    let mut hand = Vec::new();
-    for _ in 0..HAND_SIZE {
-        if let Some(card) = deck.pop() {
-            hand.push(card);
-        }
-    }
-    hand.sort_by(|a, b| a.rank.cmp(&b.rank));
-    hand
-}
-
-fn display_hand(hand: &[Card]) {
-    println!("--手札--");
-    for (i, card) in hand.iter().enumerate() {
-        println!("{}: {}", i + 1, card);
-    }
-}
-
-fn get_user_input() -> Result<Vec<usize>, String> {
-    let mut input = String::new();
-    io::stdin()
-        .read_line(&mut input)
-        .map_err(|_| "入力エラー")?;
-
-    let numbers: Vec<usize> = input
-        .split_whitespace()
-        .filter_map(|x| x.parse().ok())
-        .collect();
-
-    if numbers.iter().all(|&n| (1..=HAND_SIZE).contains(&n)) {
-        Ok(numbers)
-    } else {
-        Err(format!("1から{}までの数字を入力してください", HAND_SIZE))
-    }
-}
-
-fn replace_cards(hand: &mut [Card], deck: &mut Vec<Card>, numbers: &[usize]) {
-    for &number in numbers {
-        if number < 1 || number > hand.len() {
-            println!("無効な番号: {}", number);
-            continue;
-        }
-        if let Some(card) = deck.pop() {
-            hand[number - 1] = card;
-        } else {
-            println!("デッキにカードが足りません");
-            break;
-        }
-    }
-    hand.sort_by(|a, b| a.rank.cmp(&b.rank));
-}
-
-fn evaluate_hand(hand: &[Card]) {
-    let rank = determine_hand_rank(hand);
-    println!("役: {}", rank);
+    // リポジトリの初期化
+    let game_repository = InMemoryGameRepository::new();
+    let player_repository = InMemoryPlayerRepository::new();
+    let event_publisher = InMemoryEventPublisher::new();
+    
+    // メニューコントローラの作成と実行
+    let mut menu = MenuController::new(game_repository, player_repository, event_publisher);
+    menu.run();
 }
 
 fn determine_hand_rank(hand: &[Card]) -> HandRank {
@@ -238,130 +157,127 @@ fn determine_rank_by_counts(rank_counts: &HashMap<i32, i32>) -> HandRank {
 mod tests {
     use super::*;
 
-    fn create_test_hand(cards: Vec<(Suit, i32)>) -> Vec<Card> {
-        cards
-            .into_iter()
-            .map(|(suit, rank)| Card { suit, rank })
-            .collect()
+    fn テスト用手札(cards: Vec<(Suit, i32)>) -> Vec<Card> {
+        cards.into_iter().map(|(suit, rank)| Card { suit, rank }).collect()
     }
 
     #[test]
-    fn test_royal_straight_flush() {
-        let hand = create_test_hand(vec![
+    fn ロイヤルストレートフラッシュ() {
+        let hand = テスト用手札(vec![
             (Suit::Spade, 1),
             (Suit::Spade, 10),
             (Suit::Spade, 11),
             (Suit::Spade, 12),
             (Suit::Spade, 13),
         ]);
-        assert_eq!(determine_hand_rank(&hand), HandRank::RoyalStraightFlush);
+        assert_eq!(determine_hand_rank(&hand), HandRank::RoyalStraightFlush, "ロイヤルストレートフラッシュ判定失敗");
     }
 
     #[test]
-    fn test_four_of_a_kind() {
-        let hand = create_test_hand(vec![
+    fn フォーカード() {
+        let hand = テスト用手札(vec![
             (Suit::Spade, 7),
             (Suit::Heart, 7),
             (Suit::Diamond, 7),
             (Suit::Club, 7),
             (Suit::Spade, 2),
         ]);
-        assert_eq!(determine_hand_rank(&hand), HandRank::FourOfAKind);
+        assert_eq!(determine_hand_rank(&hand), HandRank::FourOfAKind, "フォーカード判定失敗");
     }
 
     #[test]
-    fn test_full_house() {
-        let hand = create_test_hand(vec![
+    fn フルハウス() {
+        let hand = テスト用手札(vec![
             (Suit::Spade, 7),
             (Suit::Heart, 7),
             (Suit::Diamond, 7),
             (Suit::Club, 2),
             (Suit::Spade, 2),
         ]);
-        assert_eq!(determine_hand_rank(&hand), HandRank::FullHouse);
+        assert_eq!(determine_hand_rank(&hand), HandRank::FullHouse, "フルハウス判定失敗");
     }
 
     #[test]
-    fn test_high_card() {
-        let hand = create_test_hand(vec![
+    fn ハイカード() {
+        let hand = テスト用手札(vec![
             (Suit::Spade, 2),
             (Suit::Heart, 4),
             (Suit::Diamond, 6),
             (Suit::Club, 8),
             (Suit::Spade, 10),
         ]);
-        assert_eq!(determine_hand_rank(&hand), HandRank::HighCard);
+        assert_eq!(determine_hand_rank(&hand), HandRank::HighCard, "ハイカード判定失敗");
     }
 
     #[test]
-    fn test_straight() {
-        let hand = create_test_hand(vec![
+    fn ストレート() {
+        let hand = テスト用手札(vec![
             (Suit::Spade, 2),
             (Suit::Heart, 3),
             (Suit::Diamond, 4),
             (Suit::Club, 5),
             (Suit::Spade, 6),
         ]);
-        assert_eq!(determine_hand_rank(&hand), HandRank::Straight);
+        assert_eq!(determine_hand_rank(&hand), HandRank::Straight, "ストレート判定失敗");
     }
 
     #[test]
-    fn test_flush() {
-        let hand = create_test_hand(vec![
+    fn フラッシュ() {
+        let hand = テスト用手札(vec![
             (Suit::Spade, 2),
             (Suit::Spade, 4),
             (Suit::Spade, 6),
             (Suit::Spade, 8),
             (Suit::Spade, 10),
         ]);
-        assert_eq!(determine_hand_rank(&hand), HandRank::Flush);
+        assert_eq!(determine_hand_rank(&hand), HandRank::Flush, "フラッシュ判定失敗");
     }
 
     #[test]
-    fn test_straight_flush() {
-        let hand = create_test_hand(vec![
+    fn ストレートフラッシュ() {
+        let hand = テスト用手札(vec![
             (Suit::Spade, 2),
             (Suit::Spade, 3),
             (Suit::Spade, 4),
             (Suit::Spade, 5),
             (Suit::Spade, 6),
         ]);
-        assert_eq!(determine_hand_rank(&hand), HandRank::StraightFlush);
+        assert_eq!(determine_hand_rank(&hand), HandRank::StraightFlush, "ストレートフラッシュ判定失敗");
     }
 
     #[test]
-    fn test_three_of_a_kind() {
-        let hand = create_test_hand(vec![
+    fn スリーカード() {
+        let hand = テスト用手札(vec![
             (Suit::Spade, 7),
             (Suit::Heart, 7),
             (Suit::Diamond, 7),
             (Suit::Club, 2),
             (Suit::Spade, 3),
         ]);
-        assert_eq!(determine_hand_rank(&hand), HandRank::ThreeOfAKind);
+        assert_eq!(determine_hand_rank(&hand), HandRank::ThreeOfAKind, "スリーカード判定失敗");
     }
 
     #[test]
-    fn test_two_pair() {
-        let hand = create_test_hand(vec![
+    fn ツーペア() {
+        let hand = テスト用手札(vec![
             (Suit::Spade, 7),
             (Suit::Heart, 7),
             (Suit::Diamond, 2),
             (Suit::Club, 2),
             (Suit::Spade, 3),
         ]);
-        assert_eq!(determine_hand_rank(&hand), HandRank::TwoPair);
+        assert_eq!(determine_hand_rank(&hand), HandRank::TwoPair, "ツーペア判定失敗");
     }
 
     #[test]
-    fn test_one_pair() {
-        let hand = create_test_hand(vec![
+    fn ワンペア() {
+        let hand = テスト用手札(vec![
             (Suit::Spade, 7),
             (Suit::Heart, 7),
             (Suit::Diamond, 2),
             (Suit::Club, 3),
             (Suit::Spade, 4),
         ]);
-        assert_eq!(determine_hand_rank(&hand), HandRank::OnePair);
+        assert_eq!(determine_hand_rank(&hand), HandRank::OnePair, "ワンペア判定失敗");
     }
 }

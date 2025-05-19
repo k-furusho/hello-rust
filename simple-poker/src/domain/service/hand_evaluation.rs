@@ -167,14 +167,19 @@ impl HandEvaluationService {
             
             // 次の組み合わせに進む
             let mut i = 4;
-            while i >= 0 && indices[i] == n - 5 + i {
-                i -= 1;
+            loop {
+                if indices[i] == n - 5 + i {
+                    if i == 0 {
+                        break;
+                    }
+                    i -= 1;
+                } else {
+                    break;
+                }
             }
-            
-            if i < 0 {
+            if i == 0 && indices[i] == n - 5 + i {
                 break; // すべての組み合わせを試した
             }
-            
             indices[i] += 1;
             for j in i+1..5 {
                 indices[j] = indices[j-1] + 1;

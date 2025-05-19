@@ -1,4 +1,4 @@
-use crate::domain::model::game::{Game, GameId};
+use crate::domain::model::game::GameId;
 use crate::domain::repository::game_repository::GameRepository;
 
 pub struct StartGameUseCase<R: GameRepository> {

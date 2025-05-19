@@ -344,27 +344,19 @@ impl PokerGame {
         // フォールドは常に可能
         actions.push(BetAction::Fold);
         
-        // 現在のベットに対する追加ベット額を計算
-        let call_amount = self.current_bet.saturating_sub(player.current_bet);
-        
-        // チップがない場合はフォールドのみ
-        if player.chips == 0 {
-            return actions;
-        }
-        
         // 現在のベットがゼロか、プレイヤーが既に最大ベット額を出している場合はチェック可能
         if self.current_bet == 0 || self.current_bet == player.current_bet {
             actions.push(BetAction::Check);
         }
         
         // プレイヤーが現在のベットをコールできるなら
-        if call_amount > 0 && player.chips >= call_amount {
+        if player.chips > 0 {
             actions.push(BetAction::Call);
         }
         
         // レイズが可能（現在のベット額+最小ベット額以上のチップがある場合）
         let min_raise = self.big_blind;
-        if player.chips >= call_amount + min_raise {
+        if player.chips >= min_raise {
             actions.push(BetAction::Raise);
         }
         
@@ -398,18 +390,12 @@ impl PokerGame {
                 println!("{} がチェックしました", player.name);
             },
             BetAction::Call => {
-                let call_amount = self.current_bet.saturating_sub(player.current_bet);
-                if call_amount > 0 {
-                    let amount_bet = player.place_bet(call_amount);
-                    self.pot += amount_bet;
-                    println!("{} が {}チップでコールしました", player.name, amount_bet);
-                } else {
-                    println!("{} がチェックしました", player.name);
-                }
+                let amount_bet = player.place_bet(self.current_bet);
+                self.pot += amount_bet;
+                println!("{} が {}チップでコールしました", player.name, amount_bet);
             },
             BetAction::Raise => {
                 if let Some(raise_to) = bet_amount {
-                    let call_amount = self.current_bet.saturating_sub(player.current_bet);
                     let min_raise = self.current_bet + self.big_blind;
                     
                     if raise_to < min_raise {
@@ -484,7 +470,7 @@ impl PokerGame {
     fn allow_exchange_cards(&mut self) {
         println!("\n-- カード交換フェーズ --");
         
-        for (index, player) in self.players.iter_mut().enumerate() {
+        for player in self.players.iter_mut() {
             if player.is_folded {
                 continue;
             }
@@ -660,23 +646,6 @@ impl PokerGame {
         if !self.players.is_empty() {
             let first_player = self.players.remove(0);
             self.players.push(first_player);
-        }
-    }
-    
-    fn show_status(&self) {
-        println!("\n-- ゲーム状況 --");
-        println!("ポット: {}チップ", self.pot);
-        println!("現在のベット: {}チップ", self.current_bet);
-        
-        println!("\nプレイヤー:");
-        for (i, player) in self.players.iter().enumerate() {
-            println!("{}. {} - {}チップ{}{}",
-                i + 1,
-                player.name,
-                player.chips,
-                if player.is_folded { " [フォールド]" } else { "" },
-                if player.is_all_in { " [オールイン]" } else { "" }
-            );
         }
     }
 }

@@ -1,14 +1,12 @@
 use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
-use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
 use crate::domain::model::game::{Game, GameId, GameVariant, GamePhase, BettingRound};
 use crate::domain::model::player::{Player, PlayerId};
 use crate::domain::model::card::{Card, Suit};
-use crate::domain::model::bet::Pot;
 use crate::domain::repository::game_repository::GameRepository;
 
 // シリアライズ用のモデルを別モジュールに分離
@@ -224,7 +222,6 @@ impl GameSerializer {
 #[derive(Clone)]
 pub struct FileGameRepository {
     directory: PathBuf,
-    games: HashMap<String, Game>,
 }
 
 impl FileGameRepository {
@@ -239,7 +236,6 @@ impl FileGameRepository {
         
         let repo = Self {
             directory,
-            games: HashMap::new(),
         };
         
         Ok(repo)

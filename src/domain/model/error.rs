@@ -21,52 +21,45 @@ pub enum DomainError {
     InvalidState(String),
 }
 
-// 文字列からDomainErrorへの変換を便利にするためのFrom実装
 impl From<&'static str> for DomainError {
     fn from(s: &'static str) -> Self {
         DomainError::InvalidState(s.to_string())
     }
 }
 
-// Stringからの変換
 impl From<String> for DomainError {
     fn from(s: String) -> Self {
         DomainError::InvalidState(s)
     }
 }
 
-// DomainErrorからStringへの変換
 impl From<DomainError> for String {
     fn from(error: DomainError) -> Self {
         error.to_string()
     }
 }
 
-// &DomainErrorからStringへの変換
 impl From<&DomainError> for String {
     fn from(error: &DomainError) -> Self {
         error.to_string()
     }
 }
 
-// DomainErrorをAsRef<str>として扱えるようにする
 impl AsRef<str> for DomainError {
     fn as_ref(&self) -> &str {
-        // 各エラー種別に応じた静的なメッセージを返す
         match self {
-            DomainError::InvalidCard(_) => "カードエラー",
-            DomainError::InvalidGameOperation(_) => "ゲーム操作エラー",
-            DomainError::InvalidPlayerOperation(_) => "プレイヤー操作エラー",
-            DomainError::InvalidBet(_) => "ベットエラー",
-            DomainError::ResourceNotFound(_) => "リソース未発見エラー",
-            DomainError::InvalidState(_) => "状態エラー",
+            DomainError::InvalidCard(s) => s.as_ref(),
+            DomainError::InvalidGameOperation(s) => s.as_ref(),
+            DomainError::InvalidPlayerOperation(s) => s.as_ref(),
+            DomainError::InvalidBet(s) => s.as_ref(),
+            DomainError::ResourceNotFound(s) => s.as_ref(),
+            DomainError::InvalidState(s) => s.as_ref(),
         }
     }
 }
 
-// &'static strからDomainErrorへの変換（&str -> DomainError）
 impl<'a> From<DomainError> for &'a str {
     fn from(_error: DomainError) -> &'a str {
         "ドメインエラーが発生しました"
     }
-} 
+}

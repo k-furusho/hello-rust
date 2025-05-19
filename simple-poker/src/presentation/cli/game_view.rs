@@ -1,7 +1,6 @@
 use crate::domain::model::bet::BetAction;
 use crate::domain::model::game::{Game, GamePhase, GameVariant};
 use crate::domain::model::player::Player;
-use crate::domain::model::error::DomainError;
 use crate::domain::service::game_rule::GameRuleService;
 use crate::domain::service::hand_evaluation::HandEvaluationService;
 use crate::presentation::cli::input_handler::InputHandler;

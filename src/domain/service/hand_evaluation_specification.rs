@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use crate::domain::model::card::Card;
 
-/// 手札の評価条件を表す仕様インターフェース
 pub trait HandSpecification {
     /// この手札が条件を満たすかどうかを判定する
     fn is_satisfied_by(&self, cards: &[Card]) -> bool;
@@ -9,7 +8,6 @@ pub trait HandSpecification {
     fn name(&self) -> &'static str;
 }
 
-/// フラッシュ（同じスートのカード5枚）の仕様
 pub struct FlushSpecification;
 
 impl HandSpecification for FlushSpecification {
@@ -17,7 +15,6 @@ impl HandSpecification for FlushSpecification {
         if cards.len() < 5 {
             return false;
         }
-        
         let first_suit = cards[0].suit();
         cards.iter().all(|card| card.suit() == first_suit)
     }
@@ -27,45 +24,43 @@ impl HandSpecification for FlushSpecification {
     }
 }
 
-/// ストレート（連続した数字のカード5枚）の仕様
 pub struct StraightSpecification;
 
 impl HandSpecification for StraightSpecification {
     fn is_satisfied_by(&self, cards: &[Card]) -> bool {
-        if cards.len() < 5 {
+        if cards.len() != 5 {
             return false;
         }
         
+        // カードをランク順にソート
         let mut ranks: Vec<u8> = cards.iter().map(|c| c.rank()).collect();
         ranks.sort();
         
-        // 重複を除去
-        ranks.dedup();
-        
-        if ranks.len() < 5 {
-            return false;
-        }
-        
-        // A-2-3-4-5のストレート
-        if ranks.contains(&1) && ranks.contains(&2) && ranks.contains(&3) 
-           && ranks.contains(&4) && ranks.contains(&5) {
+        // A-2-3-4-5のホイールストレート
+        if ranks == [1, 2, 3, 4, 5] {
             return true;
         }
         
-        // 10-J-Q-K-Aのストレート
-        if ranks.contains(&1) && ranks.contains(&10) && ranks.contains(&11) 
-           && ranks.contains(&12) && ranks.contains(&13) {
+        // 10-J-Q-K-Aのロイヤルストレート
+        if ranks == [1, 10, 11, 12, 13] {
             return true;
         }
         
-        // 通常の5枚連続をチェック
-        for window in ranks.windows(5) {
-            if window[4] - window[0] == 4 {
-                return true;
+        // 重複がないか確認
+        for i in 0..ranks.len() - 1 {
+            if ranks[i] == ranks[i + 1] {
+                return false;
             }
         }
         
-        false
+        // 連続しているか確認
+        for i in 0..ranks.len() - 1 {
+            if ranks[i + 1] != ranks[i] + 1 {
+                return false;
+            }
+        }
+        
+        true
     }
     
     fn name(&self) -> &'static str {
@@ -73,40 +68,25 @@ impl HandSpecification for StraightSpecification {
     }
 }
 
-/// ロイヤルストレートフラッシュの仕様
 pub struct RoyalStraightFlushSpecification;
 
 impl HandSpecification for RoyalStraightFlushSpecification {
     fn is_satisfied_by(&self, cards: &[Card]) -> bool {
-        if cards.len() < 5 {
+        if cards.len() != 5 {
             return false;
         }
         
-        // 同じスートであることを確認
-        let flush_spec = FlushSpecification;
-        if !flush_spec.is_satisfied_by(cards) {
+        // 同じスートか確認
+        let first_suit = cards[0].suit();
+        if !cards.iter().all(|card| card.suit() == first_suit) {
             return false;
         }
         
-        // 必要なランクがあるかチェック
-        let mut has_ace = false;
-        let mut has_ten = false;
-        let mut has_jack = false;
-        let mut has_queen = false;
-        let mut has_king = false;
+        // 10, J, Q, K, A のランクを持っているか確認
+        let mut ranks: Vec<u8> = cards.iter().map(|c| c.rank()).collect();
+        ranks.sort();
         
-        for card in cards {
-            match card.rank() {
-                1 => has_ace = true,
-                10 => has_ten = true,
-                11 => has_jack = true,
-                12 => has_queen = true,
-                13 => has_king = true,
-                _ => {}
-            }
-        }
-        
-        has_ace && has_ten && has_jack && has_queen && has_king
+        ranks == [1, 10, 11, 12, 13]
     }
     
     fn name(&self) -> &'static str {
@@ -114,7 +94,6 @@ impl HandSpecification for RoyalStraightFlushSpecification {
     }
 }
 
-/// フォーカード（同じランクのカード4枚）の仕様
 pub struct FourOfAKindSpecification;
 
 impl HandSpecification for FourOfAKindSpecification {
@@ -122,7 +101,6 @@ impl HandSpecification for FourOfAKindSpecification {
         if cards.len() < 4 {
             return false;
         }
-        
         let rank_counts = count_ranks(cards);
         rank_counts.values().any(|&count| count >= 4)
     }
@@ -132,7 +110,6 @@ impl HandSpecification for FourOfAKindSpecification {
     }
 }
 
-/// フルハウス（スリーカード + ワンペア）の仕様
 pub struct FullHouseSpecification;
 
 impl HandSpecification for FullHouseSpecification {
@@ -140,12 +117,11 @@ impl HandSpecification for FullHouseSpecification {
         if cards.len() < 5 {
             return false;
         }
-        
         let rank_counts = count_ranks(cards);
         let has_three = rank_counts.values().any(|&count| count >= 3);
         let pair_count = rank_counts.values().filter(|&&count| count >= 2).count();
         
-        has_three && pair_count >= 2 // スリーカードが有り、かつペアが2つ以上ある
+        has_three && pair_count >= 2
     }
     
     fn name(&self) -> &'static str {
@@ -153,7 +129,6 @@ impl HandSpecification for FullHouseSpecification {
     }
 }
 
-/// ランクの出現回数をカウントするヘルパー関数
 fn count_ranks(cards: &[Card]) -> HashMap<u8, u8> {
     let mut rank_counts = HashMap::new();
     for card in cards {
@@ -162,7 +137,6 @@ fn count_ranks(cards: &[Card]) -> HashMap<u8, u8> {
     rank_counts
 }
 
-/// 複合仕様 - 論理AND
 pub struct AndSpecification<T, U> {
     spec1: T,
     spec2: U,
@@ -185,7 +159,6 @@ impl<T: HandSpecification, U: HandSpecification> HandSpecification for AndSpecif
     }
 }
 
-/// 複合仕様 - 論理OR
 pub struct OrSpecification<T, U> {
     spec1: T,
     spec2: U,
@@ -208,7 +181,6 @@ impl<T: HandSpecification, U: HandSpecification> HandSpecification for OrSpecifi
     }
 }
 
-/// 複合仕様 - 論理NOT
 pub struct NotSpecification<T> {
     spec: T,
     name: &'static str,

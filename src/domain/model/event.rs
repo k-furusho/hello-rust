@@ -1,19 +1,16 @@
 use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
-
-use super::card::Card;
-use super::game::{GameId, GameVariant, BettingRound};
-use super::player::PlayerId;
+use crate::domain::model::game::{GameId, GameVariant, BettingRound};
+use crate::domain::model::player::PlayerId;
+use crate::domain::model::card::Card;
 use super::bet::BetAction;
 
-/// ドメインイベントを表す基本インターフェース
 pub trait DomainEvent: std::fmt::Debug {
     fn event_type(&self) -> &'static str;
     fn occurred_at(&self) -> DateTime<Utc>;
     fn aggregate_id(&self) -> String;
 }
 
-/// ゲーム関連のドメインイベント
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum GameEvent {
     GameCreated {
@@ -82,15 +79,15 @@ pub enum GameEvent {
 impl DomainEvent for GameEvent {
     fn event_type(&self) -> &'static str {
         match self {
-            GameEvent::GameCreated { .. } => "GameCreated",
-            GameEvent::GameStarted { .. } => "GameStarted",
-            GameEvent::PlayerAdded { .. } => "PlayerAdded",
-            GameEvent::CardsDealt { .. } => "CardsDealt",
-            GameEvent::BettingRoundStarted { .. } => "BettingRoundStarted",
-            GameEvent::PlayerAction { .. } => "PlayerAction",
-            GameEvent::CardsExchanged { .. } => "CardsExchanged",
-            GameEvent::CommunityCardsDealt { .. } => "CommunityCardsDealt",
-            GameEvent::GameEnded { .. } => "GameEnded",
+            GameEvent::GameCreated { .. } => "game_created",
+            GameEvent::GameStarted { .. } => "game_started",
+            GameEvent::PlayerAdded { .. } => "player_added",
+            GameEvent::CardsDealt { .. } => "cards_dealt",
+            GameEvent::BettingRoundStarted { .. } => "betting_round_started",
+            GameEvent::PlayerAction { .. } => "player_action",
+            GameEvent::CardsExchanged { .. } => "cards_exchanged",
+            GameEvent::CommunityCardsDealt { .. } => "community_cards_dealt",
+            GameEvent::GameEnded { .. } => "game_ended",
         }
     }
     
@@ -123,12 +120,10 @@ impl DomainEvent for GameEvent {
     }
 }
 
-/// イベントを発行するためのサービス
 pub trait EventPublisher {
     fn publish(&self, event: GameEvent) -> Result<(), super::error::DomainError>;
 }
 
-/// イベントをサブスクライブするためのサービス
 pub trait EventSubscriber {
     fn subscribe(&mut self, callback: Box<dyn Fn(&GameEvent) + Send + 'static>);
 } 

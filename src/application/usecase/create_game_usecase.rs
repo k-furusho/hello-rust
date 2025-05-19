@@ -1,7 +1,7 @@
 use chrono::Utc;
 use crate::domain::model::game::{Game, GameId, GameVariant};
 use crate::domain::model::error::DomainError;
-use crate::domain::model::event::{GameEvent, EventPublisher};
+use crate::domain::model::event::{GameEvent, EventPublisher, EventSubscriber};
 use crate::domain::repository::game_repository::GameRepository;
 
 pub struct CreateGameUseCase<R: GameRepository, E: EventPublisher> {

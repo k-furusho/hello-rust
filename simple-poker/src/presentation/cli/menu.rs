@@ -10,10 +10,7 @@ use crate::domain::repository::player_repository::PlayerRepository;
 use crate::domain::service::game_rule::GameRuleService;
 use crate::presentation::cli::game_view::GameView;
 use crate::presentation::cli::input_handler::InputHandler;
-use crate::domain::model::game::{Game, GameVariant};
-use crate::domain::model::player::PlayerId;
 use crate::domain::model::event::{EventPublisher, EventSubscriber};
-use crate::domain::model::bet::BetAction;
 
 pub struct MenuController<G, P, E>
 where 
